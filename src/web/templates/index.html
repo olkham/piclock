@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}PiClock3 — Dashboard{% endblock %}
+{% block content %}
+<div x-data="dashboard()" x-init="init()">
+    <h1 class="text-2xl font-bold mb-6">Dashboard</h1>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Status Card -->
+        <div class="card">
+            <h2 class="text-lg font-semibold mb-4">Status</h2>
+            <div class="space-y-2 text-sm">
+                <div class="flex justify-between">
+                    <span class="text-slate-400">Active Theme</span>
+                    <span class="font-medium" x-text="activeTheme"></span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-400">Timezone</span>
+                    <span class="font-medium" x-text="timezone"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Settings Card -->
+        <div class="card">
+            <h2 class="text-lg font-semibold mb-4">Quick Settings</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm text-slate-400 mb-1">Theme</label>
+                    <select x-model="selectedTheme" @change="activateTheme()"
+                            class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
+                        <template x-for="t in themes" :key="t">
+                            <option :value="t" x-text="t" :selected="t === activeTheme"></option>
+                        </template>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-400 mb-1">Timezone</label>
+                    <select x-model="timezone" @change="selectTimezone()"
+                            class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
+                        <template x-for="tz in timezoneOptions" :key="tz.value">
+                            <option :value="tz.value" x-text="tz.label" :selected="tz.value === timezone"></option>
+                        </template>
+                    </select>
+                </div>
+                <div>
+                    <label class="flex items-center gap-2 text-sm">
+                        <input type="checkbox" x-model="smoothHands" @change="toggleSmooth()">
+                        Smooth hand movement (60 fps)
+                    </label>
+                    <p class="text-xs text-slate-500 mt-1">Disabled automatically on Pi Zero for performance.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Clock Preview -->
+        <div class="card md:col-span-2 flex flex-col items-center">
+            <h2 class="text-lg font-semibold mb-4">Preview</h2>
+            <canvas id="clock-preview" width="360" height="360"></canvas>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/clock-preview.js') }}"></script>
+<script>
+function dashboard() {
+    return {
+        activeTheme: '{{ active_theme }}',
+        timezone: '{{ timezone }}',
+        themes: {{ themes | tojson }},
+        selectedTheme: '{{ active_theme }}',
+        themeData: null,
+        timezoneOptions: [
+            { value: 'Etc/GMT+12', label: 'GMT-12: Baker Island' },
+            { value: 'Etc/GMT+11', label: 'GMT-11: Pago Pago' },
+            { value: 'Etc/GMT+10', label: 'GMT-10: Honolulu' },
+            { value: 'Etc/GMT+9',  label: 'GMT-9: Anchorage' },
+            { value: 'Etc/GMT+8',  label: 'GMT-8: Los Angeles, Vancouver' },
+            { value: 'Etc/GMT+7',  label: 'GMT-7: Denver, Phoenix' },
+            { value: 'Etc/GMT+6',  label: 'GMT-6: Chicago, Mexico City' },
+            { value: 'Etc/GMT+5',  label: 'GMT-5: New York, Toronto, Bogota' },
+            { value: 'Etc/GMT+4',  label: 'GMT-4: Halifax, Santiago' },
+            { value: 'Etc/GMT+3',  label: 'GMT-3: São Paulo, Buenos Aires' },
+            { value: 'Etc/GMT+2',  label: 'GMT-2: South Georgia' },
+            { value: 'Etc/GMT+1',  label: 'GMT-1: Azores, Cape Verde' },
+            { value: 'Etc/GMT',    label: 'GMT: London, Dublin, Lisbon' },
+            { value: 'Etc/GMT-1',  label: 'GMT+1: Berlin, Paris, Rome' },
+            { value: 'Etc/GMT-2',  label: 'GMT+2: Cairo, Helsinki, Johannesburg' },
+            { value: 'Etc/GMT-3',  label: 'GMT+3: Moscow, Istanbul, Nairobi' },
+            { value: 'Etc/GMT-4',  label: 'GMT+4: Dubai, Baku' },
+            { value: 'Etc/GMT-5',  label: 'GMT+5: Karachi, Tashkent' },
+            { value: 'Etc/GMT-6',  label: 'GMT+6: Dhaka, Almaty' },
+            { value: 'Etc/GMT-7',  label: 'GMT+7: Bangkok, Jakarta' },
+            { value: 'Etc/GMT-8',  label: 'GMT+8: Singapore, Hong Kong, Perth' },
+            { value: 'Etc/GMT-9',  label: 'GMT+9: Tokyo, Seoul' },
+            { value: 'Etc/GMT-10', label: 'GMT+10: Sydney, Melbourne' },
+            { value: 'Etc/GMT-11', label: 'GMT+11: Solomon Islands' },
+            { value: 'Etc/GMT-12', label: 'GMT+12: Auckland, Fiji' },
+        ],
+        smoothHands: false,
+
+        async init() {
+            await this.loadTheme();
+            startClockPreview('clock-preview', this.themeData, this.timezone);
+            // Load smooth_hands setting
+            const sResp = await fetch('/api/settings');
+            const allSettings = await sResp.json();
+            this.smoothHands = allSettings.smooth_hands === 'true';
+        },
+
+        async loadTheme() {
+            const resp = await fetch(`/api/themes/${this.activeTheme}`);
+            this.themeData = await resp.json();
+        },
+
+        async selectTimezone() {
+            await fetch('/api/settings', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ timezone: this.timezone }),
+            });
+            startClockPreview('clock-preview', this.themeData, this.timezone);
+        },
+
+        async activateTheme() {
+            await fetch(`/api/themes/${this.selectedTheme}/activate`, { method: 'POST' });
+            this.activeTheme = this.selectedTheme;
+            await this.loadTheme();
+            startClockPreview('clock-preview', this.themeData, this.timezone);
+        },
+
+        async toggleSmooth() {
+            await fetch('/api/settings', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ smooth_hands: this.smoothHands ? 'true' : 'false' }),
+            });
+        },
+    };
+}
+</script>
+{% endblock %}

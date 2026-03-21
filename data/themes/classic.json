@@ -1,0 +1,76 @@
+{
+    "name": "Classic",
+    "background": {
+        "type": "gradient",
+        "color": "#1a1a2e",
+        "colors": ["#1a1a2e", "#16213e"],
+        "gradient_type": "radial",
+        "gradient_angle": 0,
+        "color_stops": [],
+        "image": ""
+    },
+    "markers": {
+        "hour_style": "roman",
+        "hour_labels": ["XII", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI"],
+        "hour_color": "#e0e0e0",
+        "hour_width": 3.0,
+        "hour_length": 0.06,
+        "dot_radius": 5.0,
+        "font_size": 0,
+        "hour_shadow": false,
+        "show_minutes": true,
+        "minute_style": "line",
+        "minute_color": "#555555",
+        "minute_width": 1.5,
+        "minute_length": 0.02,
+        "minute_dot_radius": 2.0,
+        "minute_shadow": false
+    },
+    "hands": {
+        "hour": {
+            "style": "tapered",
+            "color": "#ffffff",
+            "width": 14.0,
+            "length": 0.45,
+            "tail": 0.08,
+            "shadow": true,
+            "glow": false,
+            "glow_color": "#ffffff",
+            "image": ""
+        },
+        "minute": {
+            "style": "tapered",
+            "color": "#ffffff",
+            "width": 10.0,
+            "length": 0.65,
+            "tail": 0.10,
+            "shadow": true,
+            "glow": false,
+            "glow_color": "#ffffff",
+            "image": ""
+        },
+        "second": {
+            "visible": true,
+            "color": "#ff4444",
+            "length": 0.72,
+            "tail": 0.15,
+            "shadow": true,
+            "glow": false,
+            "glow_color": "#ff4444",
+            "style": "line",
+            "image": "",
+            "counterweight": true,
+            "counterweight_radius": 0.04
+        }
+    },
+    "center_dot": {
+        "visible": true,
+        "color": "#ffffff",
+        "radius": 7
+    },
+    "alarm_indicators": {
+        "visible": true,
+        "color": "#ffaa00",
+        "size": 4.0
+    }
+}

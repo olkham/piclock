@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+{% block title %}PiClock3 — Alarms{% endblock %}
+{% block content %}
+<div x-data="alarmManager()" x-init="load()">
+    <h1 class="text-2xl font-bold mb-6">Alarms</h1>
+
+    <div class="card mb-6">
+        <h2 class="text-lg font-semibold mb-4">Add Alarm</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Time</label>
+                <input type="time" x-model="newAlarm.time"
+                       class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Label</label>
+                <input type="text" x-model="newAlarm.label" placeholder="Optional label"
+                       class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Repeat Days</label>
+                <div class="flex gap-1 flex-wrap">
+                    <template x-for="day in ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']" :key="day">
+                        <button @click="toggleDay(day)"
+                                :class="newAlarm.days.includes(day) ? 'bg-blue-600' : 'bg-slate-600'"
+                                class="text-xs px-2 py-1 rounded" x-text="day">
+                        </button>
+                    </template>
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Sound</label>
+                <select x-model="newAlarm.sound" class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
+                    <option value="">Default</option>
+                    <template x-for="s in sounds" :key="s">
+                        <option :value="s" x-text="s"></option>
+                    </template>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Animation Shape</label>
+                <select x-model="newAlarm.animation_shape" class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
+                    <option value="ring">Ring</option>
+                    <option value="flash">Flash</option>
+                    <option value="border_glow">Border Glow</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Animation Color</label>
+                <input type="color" x-model="newAlarm.animation_color" class="w-full h-9 rounded">
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Animation Speed</label>
+                <select x-model="newAlarm.animation_speed" class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
+                    <option value="slow">Slow</option>
+                    <option value="normal">Normal</option>
+                    <option value="fast">Fast</option>
+                </select>
+            </div>
+            <div class="flex items-end">
+                <button @click="addAlarm()"
+                        class="w-full bg-green-600 hover:bg-green-700 text-white text-sm px-4 py-2 rounded">
+                    Add Alarm
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sound Upload -->
+    <div class="card mb-6">
+        <h2 class="text-lg font-semibold mb-4">Upload Sound</h2>
+        <div class="flex gap-4 items-end">
+            <div class="flex-1">
+                <label class="block text-xs text-slate-400 mb-1">Sound file (WAV, OGG, MP3)</label>
+                <input type="file" accept=".wav,.ogg,.mp3" @change="uploadSound($event)"
+                       class="w-full text-sm text-slate-400">
+            </div>
+        </div>
+        <div x-show="sounds.length > 0" class="mt-3">
+            <p class="text-xs text-slate-400 mb-1">Available sounds:</p>
+            <div class="flex flex-wrap gap-2">
+                <template x-for="s in sounds" :key="s">
+                    <span class="text-xs bg-slate-700 px-2 py-1 rounded" x-text="s"></span>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2 class="text-lg font-semibold mb-4">Active Alarms</h2>
+        <div x-show="alarms.length === 0" class="text-slate-400 text-sm">No alarms set.</div>
+        <div class="space-y-3">
+            <template x-for="alarm in alarms" :key="alarm.id">
+                <div class="p-3 bg-slate-700 rounded">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <span class="text-xl font-mono" x-text="alarm.time"></span>
+                            <span class="text-sm text-slate-400 ml-2" x-text="alarm.label"></span>
+                            <span class="text-xs text-slate-500 ml-2" x-text="alarm.days || 'Once'"></span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" :checked="alarm.enabled" @change="toggleAlarm(alarm)"
+                                       class="sr-only peer">
+                                <div class="w-9 h-5 bg-slate-600 peer-checked:bg-blue-600 rounded-full
+                                            after:content-[''] after:absolute after:top-0.5 after:left-[2px]
+                                            after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all
+                                            peer-checked:after:translate-x-full"></div>
+                            </label>
+                            <button @click="removeAlarm(alarm.id)"
+                                    class="text-red-400 hover:text-red-300 text-sm">&#10005;</button>
+                        </div>
+                    </div>
+                    <div class="flex gap-4 mt-2 text-xs text-slate-400">
+                        <span>Shape: <span x-text="alarm.animation_shape || 'ring'"></span></span>
+                        <span>Speed: <span x-text="alarm.animation_speed || 'normal'"></span></span>
+                        <span class="flex items-center gap-1">Color:
+                            <span class="inline-block w-3 h-3 rounded-full" :style="`background:${alarm.animation_color||'#ff3333'}`"></span>
+                        </span>
+                        <span x-show="alarm.sound">Sound: <span x-text="alarm.sound"></span></span>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+</div>
+
+<script>
+function alarmManager() {
+    return {
+        alarms: [],
+        sounds: [],
+        newAlarm: {
+            time: '', label: '', days: [], sound: '',
+            animation_shape: 'ring', animation_color: '#ff3333', animation_speed: 'normal'
+        },
+
+        async load() {
+            const [alarmResp, soundResp] = await Promise.all([
+                fetch('/api/alarms'),
+                fetch('/api/sounds')
+            ]);
+            this.alarms = await alarmResp.json();
+            this.sounds = await soundResp.json();
+        },
+
+        toggleDay(day) {
+            const idx = this.newAlarm.days.indexOf(day);
+            if (idx >= 0) this.newAlarm.days.splice(idx, 1);
+            else this.newAlarm.days.push(day);
+        },
+
+        async addAlarm() {
+            if (!this.newAlarm.time) return;
+            await fetch('/api/alarms', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    time: this.newAlarm.time,
+                    label: this.newAlarm.label,
+                    days: this.newAlarm.days.join(','),
+                    sound: this.newAlarm.sound,
+                    animation_shape: this.newAlarm.animation_shape,
+                    animation_color: this.newAlarm.animation_color,
+                    animation_speed: this.newAlarm.animation_speed,
+                }),
+            });
+            this.newAlarm = {
+                time: '', label: '', days: [], sound: '',
+                animation_shape: 'ring', animation_color: '#ff3333', animation_speed: 'normal'
+            };
+            await this.load();
+        },
+
+        async toggleAlarm(alarm) {
+            alarm.enabled = alarm.enabled ? 0 : 1;
+            await fetch(`/api/alarms/${alarm.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(alarm),
+            });
+        },
+
+        async removeAlarm(id) {
+            await fetch(`/api/alarms/${id}`, { method: 'DELETE' });
+            await this.load();
+        },
+
+        async uploadSound(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const formData = new FormData();
+            formData.append('file', file);
+            await fetch('/api/sounds', { method: 'POST', body: formData });
+            await this.load();
+            event.target.value = '';
+        },
+    };
+}
+</script>
+{% endblock %}

@@ -1,0 +1,550 @@
+{% extends "base.html" %}
+{% block title %}PiClock3 — Themes{% endblock %}
+{% block main_class %}max-w-[90rem]{% endblock %}
+{% block content %}
+<div x-data="themeEditor()" x-init="init()">
+    <h1 class="text-2xl font-bold mb-6">Theme Editor</h1>
+
+    <div class="flex gap-6">
+        <!-- Theme List (fixed width left) -->
+        <div class="card w-64 flex-shrink-0 self-start">
+            <h2 class="text-lg font-semibold mb-4">Themes</h2>
+            <div class="space-y-2">
+                <template x-for="t in themes" :key="t">
+                    <div class="flex items-center justify-between p-2 rounded cursor-pointer hover:bg-slate-600"
+                         :class="{ 'bg-slate-600': editing === t }"
+                         @click="loadTheme(t)">
+                        <span x-text="t"></span>
+                        <span x-show="t === active" class="text-xs bg-blue-600 px-2 py-0.5 rounded">Active</span>
+                    </div>
+                </template>
+            </div>
+            <div class="mt-4 space-y-2">
+                <input x-model="newName" placeholder="New theme name"
+                       class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                <button @click="createTheme()"
+                        class="w-full bg-green-600 hover:bg-green-700 text-white text-sm px-3 py-1.5 rounded">
+                    Create
+                </button>
+            </div>
+
+            <!-- Import / Export -->
+            <div class="mt-4 border-t border-slate-600 pt-4 space-y-2">
+                <button @click="exportTheme()" x-show="editing"
+                        class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-3 py-1.5 rounded">
+                    Export Theme JSON
+                </button>
+                <label class="block w-full bg-teal-600 hover:bg-teal-700 text-white text-sm px-3 py-1.5 rounded text-center cursor-pointer">
+                    Import Theme JSON
+                    <input type="file" accept=".json" @change="importTheme($event)" class="hidden">
+                </label>
+            </div>
+        </div>
+
+        <!-- Editor Controls (scrollable middle) -->
+        <div class="card flex-1 min-w-0 overflow-y-auto" style="max-height: calc(100vh - 10rem);" x-show="theme">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold">Editing: <span x-text="editing"></span></h2>
+                <div class="flex gap-2">
+                    <button @click="activateTheme()"
+                            class="bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1 rounded">
+                        Activate
+                    </button>
+                    <button @click="saveTheme()"
+                            class="bg-green-600 hover:bg-green-700 text-white text-sm px-3 py-1 rounded">
+                        Save
+                    </button>
+                    <button @click="deleteTheme()"
+                            class="bg-red-600 hover:bg-red-700 text-white text-sm px-3 py-1 rounded">
+                        Delete
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Background -->
+                <fieldset class="border border-slate-600 rounded p-3">
+                    <legend class="text-sm text-slate-400 px-1">Background</legend>
+                    <label class="block text-xs text-slate-400 mb-1">Type</label>
+                    <select x-model="theme.background.type" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm mb-2">
+                        <option value="solid">Solid</option>
+                        <option value="gradient">Gradient</option>
+                        <option value="image">Image</option>
+                    </select>
+
+                    <template x-if="theme.background.type === 'solid'">
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Color</label>
+                            <input type="color" x-model="theme.background.color" class="w-full h-8 rounded">
+                        </div>
+                    </template>
+
+                    <template x-if="theme.background.type === 'gradient'">
+                        <div class="space-y-2">
+                            <label class="block text-xs text-slate-400 mb-1">Gradient Type</label>
+                            <select x-model="theme.background.gradient_type" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                <option value="radial">Radial</option>
+                                <option value="linear">Linear</option>
+                            </select>
+                            <template x-if="theme.background.gradient_type === 'linear'">
+                                <div>
+                                    <label class="block text-xs text-slate-400 mb-1">Angle: <span x-text="theme.background.gradient_angle + '°'"></span></label>
+                                    <input type="range" x-model.number="theme.background.gradient_angle" min="0" max="360" step="5" class="w-full">
+                                </div>
+                            </template>
+                            <template x-if="theme.background.gradient_type === 'radial'">
+                                <div class="space-y-1">
+                                    <label class="block text-xs text-slate-400">Center X: <span x-text="Math.round((theme.background.gradient_center_x ?? 0.5) * 100) + '%'"></span></label>
+                                    <input type="range" x-model.number="theme.background.gradient_center_x" min="0" max="1" step="0.05" class="w-full">
+                                    <label class="block text-xs text-slate-400">Center Y: <span x-text="Math.round((theme.background.gradient_center_y ?? 0.5) * 100) + '%'"></span></label>
+                                    <input type="range" x-model.number="theme.background.gradient_center_y" min="0" max="1" step="0.05" class="w-full">
+                                    <label class="block text-xs text-slate-400">Radius: <span x-text="Math.round((theme.background.gradient_radius ?? 1.0) * 100) + '%'"></span></label>
+                                    <input type="range" x-model.number="theme.background.gradient_radius" min="0.1" max="2" step="0.05" class="w-full">
+                                </div>
+                            </template>
+
+                            <!-- Gradient preview bar -->
+                            <label class="block text-xs text-slate-400 mb-1">Preview</label>
+                            <div class="relative h-6 rounded border border-slate-500"
+                                 :style="'background: linear-gradient(to right, ' + getGradientStops().map(s => s.color + ' ' + (s.position * 100) + '%').join(', ') + ')'">
+                                <template x-for="(s, i) in getGradientStops()" :key="i">
+                                    <div class="absolute top-full mt-0.5 w-2 h-2 -ml-1 border border-slate-400 rounded-sm"
+                                         :style="'left: ' + (s.position * 100) + '%; background: ' + s.color">
+                                    </div>
+                                </template>
+                            </div>
+
+                            <!-- Color stops list -->
+                            <label class="block text-xs text-slate-400 mt-3 mb-1">Color Stops</label>
+                            <template x-for="(stop, i) in getGradientStops()" :key="'stop-' + i">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <input type="color" :value="stop.color" @input="updateGradientStop(i, 'color', $event.target.value)" class="h-7 w-10 rounded flex-shrink-0">
+                                    <div class="flex-1 min-w-0">
+                                        <input type="range" :value="stop.position * 100" @input="updateGradientStop(i, 'position', $event.target.value / 100)" min="0" max="100" step="1" class="w-full">
+                                    </div>
+                                    <span class="text-xs text-slate-400 w-8 text-right" x-text="Math.round(stop.position * 100) + '%'"></span>
+                                    <button @click="removeGradientStop(i)" class="text-red-400 hover:text-red-300 text-xs flex-shrink-0"
+                                            x-show="getGradientStops().length > 2">&#10005;</button>
+                                </div>
+                            </template>
+                            <button @click="addGradientStop()" class="text-xs text-blue-400 hover:text-blue-300">+ Add color stop</button>
+                        </div>
+                    </template>
+
+                    <template x-if="theme.background.type === 'image'">
+                        <div class="space-y-2">
+                            <label class="block text-xs text-slate-400 mb-1">Upload Background Image</label>
+                            <input type="file" accept="image/*" @change="uploadBgImage($event)" class="text-xs text-slate-400">
+                            <p class="text-xs text-slate-500 truncate max-w-full" x-show="theme.background.image" :title="theme.background.image" x-text="'Current: ' + (theme.background.image || '').split(/[\\/]/).pop()"></p>
+                            <label class="block text-xs text-slate-400 mb-1">Fallback Color</label>
+                            <input type="color" x-model="theme.background.color" class="w-full h-8 rounded">
+                        </div>
+                    </template>
+                </fieldset>
+
+                <!-- Hour Markers -->
+                <fieldset class="border border-slate-600 rounded p-3">
+                    <legend class="text-sm text-slate-400 px-1">Hour Markers</legend>
+                    <label class="block text-xs text-slate-400 mb-1">Style</label>
+                    <select x-model="theme.markers.hour_style" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm mb-2">
+                        <option value="line">Lines</option>
+                        <option value="dot">Dots</option>
+                        <option value="roman">Roman</option>
+                        <option value="arabic">Arabic</option>
+                        <option value="custom">Custom Labels</option>
+                        <option value="none">None</option>
+                    </select>
+
+                    <template x-if="theme.markers.hour_style === 'custom'">
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Custom Labels (12 values)</label>
+                            <div class="grid grid-cols-4 gap-1 mb-2">
+                                <template x-for="(lbl, i) in theme.markers.hour_labels" :key="i">
+                                    <input type="text" :value="lbl" @input="theme.markers.hour_labels[i]=$event.target.value"
+                                           class="bg-slate-700 border border-slate-600 rounded px-1 py-0.5 text-xs text-center">
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+
+                    <label class="block text-xs text-slate-400 mb-1">Color</label>
+                    <input type="color" x-model="theme.markers.hour_color" class="w-full h-8 rounded mb-2">
+
+                    <template x-if="theme.markers.hour_style === 'line'">
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Width: <span x-text="theme.markers.hour_width"></span></label>
+                            <input type="range" x-model.number="theme.markers.hour_width" min="1" max="8" step="0.5" class="w-full mb-1">
+                            <label class="block text-xs text-slate-400 mb-1">Length: <span x-text="theme.markers.hour_length"></span></label>
+                            <input type="range" x-model.number="theme.markers.hour_length" min="0.02" max="0.15" step="0.01" class="w-full mb-1">
+                        </div>
+                    </template>
+                    <template x-if="theme.markers.hour_style === 'dot'">
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Dot Radius: <span x-text="theme.markers.dot_radius"></span></label>
+                            <input type="range" x-model.number="theme.markers.dot_radius" min="2" max="12" step="0.5" class="w-full mb-1">
+                        </div>
+                    </template>
+                    <template x-if="['roman','arabic','custom'].includes(theme.markers.hour_style)">
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Font Size (0=auto): <span x-text="theme.markers.font_size"></span></label>
+                            <input type="range" x-model.number="theme.markers.font_size" min="0" max="60" step="1" class="w-full mb-1">
+                        </div>
+                    </template>
+
+                    <label class="flex items-center gap-2 mt-2 text-sm">
+                        <input type="checkbox" x-model="theme.markers.hour_shadow"> Marker shadow
+                    </label>
+                </fieldset>
+
+                <!-- Minute Markers -->
+                <fieldset class="border border-slate-600 rounded p-3">
+                    <legend class="text-sm text-slate-400 px-1">Minute Markers</legend>
+                    <label class="flex items-center gap-2 text-sm mb-2">
+                        <input type="checkbox" x-model="theme.markers.show_minutes"> Show minute markers
+                    </label>
+                    <label class="block text-xs text-slate-400 mb-1">Style</label>
+                    <select x-model="theme.markers.minute_style" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm mb-2">
+                        <option value="line">Lines</option>
+                        <option value="dot">Dots</option>
+                    </select>
+                    <label class="block text-xs text-slate-400 mb-1">Color</label>
+                    <input type="color" x-model="theme.markers.minute_color" class="w-full h-8 rounded mb-2">
+                    <template x-if="theme.markers.minute_style === 'line'">
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Width: <span x-text="theme.markers.minute_width"></span></label>
+                            <input type="range" x-model.number="theme.markers.minute_width" min="0.5" max="4" step="0.5" class="w-full mb-1">
+                            <label class="block text-xs text-slate-400 mb-1">Length: <span x-text="theme.markers.minute_length"></span></label>
+                            <input type="range" x-model.number="theme.markers.minute_length" min="0.01" max="0.06" step="0.005" class="w-full">
+                        </div>
+                    </template>
+                    <template x-if="theme.markers.minute_style === 'dot'">
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Dot Radius: <span x-text="theme.markers.minute_dot_radius"></span></label>
+                            <input type="range" x-model.number="theme.markers.minute_dot_radius" min="0.5" max="5" step="0.5" class="w-full">
+                        </div>
+                    </template>
+                    <label class="flex items-center gap-2 mt-2 text-sm">
+                        <input type="checkbox" x-model="theme.markers.minute_shadow"> Marker shadow
+                    </label>
+                </fieldset>
+
+                <!-- Alarm Indicators -->
+                <fieldset class="border border-slate-600 rounded p-3">
+                    <legend class="text-sm text-slate-400 px-1">Alarm Indicators</legend>
+                    <label class="flex items-center gap-2 text-sm mb-2">
+                        <input type="checkbox" x-model="theme.alarm_indicators.visible"> Show alarm indicators
+                    </label>
+                    <label class="block text-xs text-slate-400 mb-1">Color</label>
+                    <input type="color" x-model="theme.alarm_indicators.color" class="w-full h-8 rounded mb-2">
+                    <label class="block text-xs text-slate-400 mb-1">Size: <span x-text="theme.alarm_indicators.size"></span></label>
+                    <input type="range" x-model.number="theme.alarm_indicators.size" min="2" max="10" step="0.5" class="w-full">
+                </fieldset>
+
+                <!-- Hour Hand -->
+                <fieldset class="border border-slate-600 rounded p-3">
+                    <legend class="text-sm text-slate-400 px-1">Hour Hand</legend>
+                    <label class="block text-xs text-slate-400 mb-1">Style</label>
+                    <select x-model="theme.hands.hour.style" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm mb-2">
+                        <option value="tapered">Tapered</option>
+                        <option value="classic">Classic</option>
+                    </select>
+                    <label class="block text-xs text-slate-400 mb-1">Color</label>
+                    <input type="color" x-model="theme.hands.hour.color" class="w-full h-8 rounded mb-2">
+                    <label class="block text-xs text-slate-400 mb-1">Width: <span x-text="theme.hands.hour.width"></span></label>
+                    <input type="range" x-model.number="theme.hands.hour.width" min="2" max="20" step="1" class="w-full mb-2">
+                    <label class="block text-xs text-slate-400 mb-1">Start: <span x-text="theme.hands.hour.start + '%'"></span></label>
+                    <input type="range" x-model.number="theme.hands.hour.start" min="-50" max="95" step="1" class="w-full mb-2">
+                    <label class="block text-xs text-slate-400 mb-1">End: <span x-text="theme.hands.hour.end + '%'"></span></label>
+                    <input type="range" x-model.number="theme.hands.hour.end" min="10" max="100" step="1" class="w-full mb-2">
+                    <label class="block text-xs text-slate-400 mb-1">Hand Image (optional)</label>
+                    <input type="file" accept="image/*" @change="uploadHandImage($event, 'hour')" class="text-xs text-slate-400 mb-1">
+                    <p class="text-xs text-slate-500 truncate max-w-full mb-2" x-show="theme.hands.hour.image" :title="theme.hands.hour.image" x-text="'Image: ' + (theme.hands.hour.image || '').split(/[\\\\/]/).pop()"></p>
+                    <label class="flex items-center gap-2 text-sm">
+                        <input type="checkbox" x-model="theme.hands.hour.shadow"> Shadow
+                    </label>
+                    <label class="flex items-center gap-2 text-sm mt-1">
+                        <input type="checkbox" x-model="theme.hands.hour.glow"> Glow
+                    </label>
+                    <template x-if="theme.hands.hour.glow">
+                        <div class="mt-1">
+                            <label class="block text-xs text-slate-400 mb-1">Glow Color</label>
+                            <input type="color" x-model="theme.hands.hour.glow_color" class="w-full h-7 rounded">
+                        </div>
+                    </template>
+                </fieldset>
+
+                <!-- Minute Hand -->
+                <fieldset class="border border-slate-600 rounded p-3">
+                    <legend class="text-sm text-slate-400 px-1">Minute Hand</legend>
+                    <label class="block text-xs text-slate-400 mb-1">Style</label>
+                    <select x-model="theme.hands.minute.style" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm mb-2">
+                        <option value="tapered">Tapered</option>
+                        <option value="classic">Classic</option>
+                    </select>
+                    <label class="block text-xs text-slate-400 mb-1">Color</label>
+                    <input type="color" x-model="theme.hands.minute.color" class="w-full h-8 rounded mb-2">
+                    <label class="block text-xs text-slate-400 mb-1">Width: <span x-text="theme.hands.minute.width"></span></label>
+                    <input type="range" x-model.number="theme.hands.minute.width" min="1" max="14" step="1" class="w-full mb-2">
+                    <label class="block text-xs text-slate-400 mb-1">Start: <span x-text="theme.hands.minute.start + '%'"></span></label>
+                    <input type="range" x-model.number="theme.hands.minute.start" min="-50" max="95" step="1" class="w-full mb-2">
+                    <label class="block text-xs text-slate-400 mb-1">End: <span x-text="theme.hands.minute.end + '%'"></span></label>
+                    <input type="range" x-model.number="theme.hands.minute.end" min="10" max="100" step="1" class="w-full mb-2">
+                    <label class="block text-xs text-slate-400 mb-1">Hand Image (optional)</label>
+                    <input type="file" accept="image/*" @change="uploadHandImage($event, 'minute')" class="text-xs text-slate-400 mb-1">
+                    <p class="text-xs text-slate-500 truncate max-w-full mb-2" x-show="theme.hands.minute.image" :title="theme.hands.minute.image" x-text="'Image: ' + (theme.hands.minute.image || '').split(/[\\\\/]/).pop()"></p>
+                    <label class="flex items-center gap-2 text-sm">
+                        <input type="checkbox" x-model="theme.hands.minute.shadow"> Shadow
+                    </label>
+                    <label class="flex items-center gap-2 text-sm mt-1">
+                        <input type="checkbox" x-model="theme.hands.minute.glow"> Glow
+                    </label>
+                    <template x-if="theme.hands.minute.glow">
+                        <div class="mt-1">
+                            <label class="block text-xs text-slate-400 mb-1">Glow Color</label>
+                            <input type="color" x-model="theme.hands.minute.glow_color" class="w-full h-7 rounded">
+                        </div>
+                    </template>
+                </fieldset>
+
+                <!-- Second Hand -->
+                <fieldset class="border border-slate-600 rounded p-3 md:col-span-2">
+                    <legend class="text-sm text-slate-400 px-1">Second Hand</legend>
+                    <label class="flex items-center gap-2 text-sm mb-2">
+                        <input type="checkbox" x-model="theme.hands.second.visible"> Show second hand
+                    </label>
+                    <label class="block text-xs text-slate-400 mb-1">Color</label>
+                    <input type="color" x-model="theme.hands.second.color" class="w-full h-8 rounded mb-2">
+                    <label class="block text-xs text-slate-400 mb-1">Start: <span x-text="theme.hands.second.start + '%'"></span></label>
+                    <input type="range" x-model.number="theme.hands.second.start" min="-50" max="95" step="1" class="w-full mb-2">
+                    <label class="block text-xs text-slate-400 mb-1">End: <span x-text="theme.hands.second.end + '%'"></span></label>
+                    <input type="range" x-model.number="theme.hands.second.end" min="10" max="100" step="1" class="w-full mb-2">
+                    <label class="block text-xs text-slate-400 mb-1">Hand Image (optional)</label>
+                    <input type="file" accept="image/*" @change="uploadHandImage($event, 'second')" class="text-xs text-slate-400 mb-1">
+                    <p class="text-xs text-slate-500 truncate max-w-full mb-2" x-show="theme.hands.second.image" :title="theme.hands.second.image" x-text="'Image: ' + (theme.hands.second.image || '').split(/[\\\\/]/).pop()"></p>
+                    <label class="flex items-center gap-2 text-sm">
+                        <input type="checkbox" x-model="theme.hands.second.counterweight"> Show counterweight
+                    </label>
+                    <template x-if="theme.hands.second.counterweight">
+                        <div class="mt-1">
+                            <label class="block text-xs text-slate-400 mb-1">Counterweight Radius: <span x-text="theme.hands.second.counterweight_radius"></span></label>
+                            <input type="range" x-model.number="theme.hands.second.counterweight_radius" min="0.01" max="0.08" step="0.005" class="w-full">
+                        </div>
+                    </template>
+                    <label class="flex items-center gap-2 text-sm mt-2">
+                        <input type="checkbox" x-model="theme.hands.second.shadow"> Shadow
+                    </label>
+                    <label class="flex items-center gap-2 text-sm mt-1">
+                        <input type="checkbox" x-model="theme.hands.second.glow"> Glow
+                    </label>
+                    <template x-if="theme.hands.second.glow">
+                        <div class="mt-1">
+                            <label class="block text-xs text-slate-400 mb-1">Glow Color</label>
+                            <input type="color" x-model="theme.hands.second.glow_color" class="w-full h-7 rounded">
+                        </div>
+                    </template>
+                </fieldset>
+
+                <!-- Center Dot -->
+                <fieldset class="border border-slate-600 rounded p-3 md:col-span-2">
+                    <legend class="text-sm text-slate-400 px-1">Center Dot</legend>
+                    <label class="flex items-center gap-2 text-sm mb-2">
+                        <input type="checkbox" x-model="theme.center_dot.visible"> Show center dot
+                    </label>
+                    <label class="block text-xs text-slate-400 mb-1">Color</label>
+                    <input type="color" x-model="theme.center_dot.color" class="w-full h-8 rounded mb-2">
+                    <label class="block text-xs text-slate-400 mb-1">Radius: <span x-text="theme.center_dot.radius"></span></label>
+                    <input type="range" x-model.number="theme.center_dot.radius" min="2" max="15" step="1" class="w-full">
+                </fieldset>
+            </div>
+        </div><!-- end card / editor controls -->
+
+        <!-- Live Preview (fixed width right, sticky) -->
+        <div class="w-80 flex-shrink-0 self-start" x-show="theme">
+            <div class="card sticky top-4 flex flex-col items-center">
+                <h3 class="text-sm text-slate-400 mb-2">Live Preview</h3>
+                <canvas id="theme-preview" width="300" height="300"></canvas>
+            </div>
+        </div>
+    </div><!-- end flex row -->
+</div>
+
+<script src="{{ url_for('static', filename='js/clock-preview.js') }}"></script>
+<script>
+function themeEditor() {
+    return {
+        themes: {{ themes | tojson }},
+        active: '{{ active_theme }}',
+        editing: null,
+        theme: null,
+        newName: '',
+
+        async init() {
+            if (this.themes.length > 0) {
+                await this.loadTheme(this.active || this.themes[0]);
+            }
+        },
+
+        async loadTheme(name) {
+            this.editing = name;
+            const resp = await fetch(`/api/themes/${name}`);
+            this.theme = await resp.json();
+            // Ensure new schema fields exist
+            if (!this.theme.background.gradient_type) this.theme.background.gradient_type = 'radial';
+            if (this.theme.background.gradient_angle == null) this.theme.background.gradient_angle = 0;
+            if (this.theme.background.gradient_center_x == null) this.theme.background.gradient_center_x = 0.5;
+            if (this.theme.background.gradient_center_y == null) this.theme.background.gradient_center_y = 0.5;
+            if (this.theme.background.gradient_radius == null) this.theme.background.gradient_radius = 1.0;
+            if (!this.theme.background.color_stops) this.theme.background.color_stops = [];
+            if (!this.theme.background.image) this.theme.background.image = '';
+            if (!this.theme.markers.hour_labels) this.theme.markers.hour_labels = ['XII','I','II','III','IV','V','VI','VII','VIII','IX','X','XI'];
+            if (this.theme.markers.hour_shadow == null) this.theme.markers.hour_shadow = false;
+            if (!this.theme.markers.minute_style) this.theme.markers.minute_style = 'line';
+            if (this.theme.markers.minute_dot_radius == null) this.theme.markers.minute_dot_radius = 2;
+            if (this.theme.markers.minute_shadow == null) this.theme.markers.minute_shadow = false;
+            if (this.theme.hands.second.counterweight == null) this.theme.hands.second.counterweight = true;
+            if (this.theme.hands.second.counterweight_radius == null) this.theme.hands.second.counterweight_radius = 0.04;
+            ['hour','minute','second'].forEach(h => {
+                if (this.theme.hands[h].glow == null) this.theme.hands[h].glow = false;
+                if (!this.theme.hands[h].glow_color) this.theme.hands[h].glow_color = this.theme.hands[h].color || '#ffffff';
+                if (this.theme.hands[h].start == null) this.theme.hands[h].start = -Math.round((this.theme.hands[h].tail || 0) * 100);
+                if (this.theme.hands[h].end == null) this.theme.hands[h].end = Math.round((this.theme.hands[h].length || 0.5) * 100);
+            });
+            if (!this.theme.alarm_indicators) this.theme.alarm_indicators = {visible:true, color:'#ffaa00', size:4};
+
+            this.$nextTick(() => {
+                startClockPreview('theme-preview', this.theme);
+            });
+        },
+
+        async saveTheme() {
+            await fetch(`/api/themes/${this.editing}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(this.theme),
+            });
+            startClockPreview('theme-preview', this.theme);
+        },
+
+        async activateTheme() {
+            await fetch(`/api/themes/${this.editing}/activate`, { method: 'POST' });
+            this.active = this.editing;
+        },
+
+        async createTheme() {
+            if (!this.newName.trim()) return;
+            const data = Object.assign({}, this.theme || {}, { name: this.newName.trim() });
+            await fetch('/api/themes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+            this.themes.push(this.newName.trim());
+            await this.loadTheme(this.newName.trim());
+            this.newName = '';
+        },
+
+        async deleteTheme() {
+            if (!confirm(`Delete theme "${this.editing}"?`)) return;
+            const resp = await fetch(`/api/themes/${this.editing}`, { method: 'DELETE' });
+            if (resp.ok) {
+                this.themes = this.themes.filter(t => t !== this.editing);
+                this.editing = null;
+                this.theme = null;
+                if (this.themes.length > 0) {
+                    await this.loadTheme(this.themes[0]);
+                }
+            }
+        },
+
+        exportTheme() {
+            window.location.href = `/api/themes/${this.editing}/export`;
+        },
+
+        async importTheme(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const formData = new FormData();
+            formData.append('file', file);
+            const resp = await fetch('/api/themes/import', { method: 'POST', body: formData });
+            if (resp.ok) {
+                const theme = await resp.json();
+                if (!this.themes.includes(theme.name)) {
+                    this.themes.push(theme.name);
+                }
+                await this.loadTheme(theme.name);
+            }
+            event.target.value = '';
+        },
+
+        async uploadBgImage(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const formData = new FormData();
+            formData.append('file', file);
+            const resp = await fetch('/api/uploads', { method: 'POST', body: formData });
+            if (resp.ok) {
+                const data = await resp.json();
+                this.theme.background.image = data.path;
+            }
+            event.target.value = '';
+        },
+
+        async uploadHandImage(event, hand) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const formData = new FormData();
+            formData.append('file', file);
+            const resp = await fetch('/api/uploads', { method: 'POST', body: formData });
+            if (resp.ok) {
+                const data = await resp.json();
+                this.theme.hands[hand].image = data.path;
+            }
+            event.target.value = '';
+        },
+
+        // Gradient stop helpers
+        getGradientStops() {
+            if (!this.theme) return [];
+            const bg = this.theme.background;
+            if (bg.color_stops && bg.color_stops.length >= 2) {
+                return bg.color_stops;
+            }
+            // Migrate from legacy colors array
+            const colors = bg.colors || ['#1a1a2e', '#16213e'];
+            return colors.map((c, i) => ({ color: c, position: i / Math.max(colors.length - 1, 1) }));
+        },
+
+        updateGradientStop(index, field, value) {
+            this._ensureColorStops();
+            if (field === 'color') {
+                this.theme.background.color_stops[index].color = value;
+            } else {
+                this.theme.background.color_stops[index].position = parseFloat(value);
+            }
+        },
+
+        addGradientStop() {
+            this._ensureColorStops();
+            const stops = this.theme.background.color_stops;
+            const lastColor = stops.length > 0 ? stops[stops.length - 1].color : '#000000';
+            stops.push({ color: lastColor, position: 1.0 });
+        },
+
+        removeGradientStop(index) {
+            this._ensureColorStops();
+            if (this.theme.background.color_stops.length > 2) {
+                this.theme.background.color_stops.splice(index, 1);
+            }
+        },
+
+        _ensureColorStops() {
+            const bg = this.theme.background;
+            if (!bg.color_stops || bg.color_stops.length < 2) {
+                const colors = bg.colors || ['#1a1a2e', '#16213e'];
+                bg.color_stops = colors.map((c, i) => ({ color: c, position: i / Math.max(colors.length - 1, 1) }));
+            }
+        },
+    };
+}
+</script>
+{% endblock %}

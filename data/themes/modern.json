@@ -1,0 +1,48 @@
+{
+    "name": "Modern",
+    "background": {
+        "type": "gradient",
+        "color": "#0f0f23",
+        "colors": ["#0f0f23", "#1b2838", "#2a3f5f"]
+    },
+    "markers": {
+        "hour_style": "line",
+        "hour_color": "#88ccff",
+        "hour_width": 2.5,
+        "hour_length": 0.07,
+        "show_minutes": true,
+        "minute_color": "#334466",
+        "minute_width": 1.0,
+        "minute_length": 0.015
+    },
+    "hands": {
+        "hour": {
+            "style": "tapered",
+            "color": "#aaddff",
+            "width": 10.0,
+            "length": 0.42,
+            "tail": 0.06,
+            "shadow": true
+        },
+        "minute": {
+            "style": "tapered",
+            "color": "#cceeFF",
+            "width": 6.0,
+            "length": 0.68,
+            "tail": 0.08,
+            "shadow": true
+        },
+        "second": {
+            "visible": true,
+            "color": "#44aaff",
+            "length": 0.74,
+            "tail": 0.12,
+            "shadow": true
+        }
+    },
+    "center_dot": {
+        "visible": true,
+        "color": "#88ccff",
+        "radius": 5
+    }
+}

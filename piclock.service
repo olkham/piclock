@@ -1,0 +1,15 @@
+[Unit]
+Description=PiClock3 Analogue Clock
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/opt/piclock3
+Environment=DISPLAY=:0
+ExecStart=/opt/piclock3/venv/bin/python -m src.main
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,43 @@
+{
+    "name": "Minimal",
+    "background": {
+        "type": "solid",
+        "color": "#000000"
+    },
+    "markers": {
+        "hour_style": "none",
+        "hour_color": "#333333",
+        "show_minutes": false,
+        "minute_color": "#222222"
+    },
+    "hands": {
+        "hour": {
+            "style": "classic",
+            "color": "#cccccc",
+            "width": 6.0,
+            "length": 0.40,
+            "tail": 0.05,
+            "shadow": false
+        },
+        "minute": {
+            "style": "classic",
+            "color": "#cccccc",
+            "width": 3.0,
+            "length": 0.62,
+            "tail": 0.07,
+            "shadow": false
+        },
+        "second": {
+            "visible": false,
+            "color": "#666666",
+            "length": 0.70,
+            "tail": 0.12,
+            "shadow": false
+        }
+    },
+    "center_dot": {
+        "visible": true,
+        "color": "#888888",
+        "radius": 4
+    }
+}
