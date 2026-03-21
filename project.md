@@ -40,6 +40,15 @@ Features:
   - Custom alarm sound upload (WAV, OGG, MP3) and picker per alarm
   - Dynamic FPS: 1 fps normally, 30 fps during alarm animation
   - Repeat days or one-time alarms
+  - Per-alarm sound enable/disable (silent alarms)
+  - Configurable animation duration per alarm
+  - Snooze and dismiss from web interface
+- Agenda mode
+  - Pie/donut chart overlay showing day's events on the clock face
+  - Events with title, start/end time, color, and recurring days
+  - Configurable inner and outer radius (0-100%) for full pie or donut chart
+  - Configurable opacity for event slices
+  - CRUD management via web UI and API
 - Timezone selector
   - Searchable dropdown showing city names with GMT±HH:MM offsets
   - Filters via `/api/timezones?q=` search query

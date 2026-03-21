@@ -389,6 +389,98 @@ def _composite_pillow_to_cairo(ctx, pil_img, x, y):
     ctx.restore()
 
 
+def draw_clock_text(ctx, size, time_info, theme):
+    """Draw the digital time text on the clock face."""
+    cfg = theme.get("clock_text", {})
+    if not cfg.get("visible", False):
+        return
+
+    center = size / 2
+    radius = size / 2
+
+    hour = time_info["hour"]
+    minute = time_info["minute"]
+    fmt = cfg.get("format", "12h")
+    if fmt == "12h":
+        suffix = "AM" if hour < 12 else "PM"
+        display_hour = hour % 12 or 12
+        text = f"{display_hour}:{minute:02d} {suffix}"
+    else:
+        text = f"{hour:02d}:{minute:02d}"
+
+    color = cfg.get("color", "#ffffff")
+    r, g, b = _hex_to_rgb(color)
+    font_size = cfg.get("font_size", 0)
+    if font_size <= 0:
+        font_size = radius * 0.12
+    offset_y = cfg.get("offset_y", 25) / 100 * radius
+
+    ctx.select_font_face(_SANS_FONT, cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
+    ctx.set_font_size(font_size)
+    extents = ctx.text_extents(text)
+    x = center - extents.width / 2
+    y = center + offset_y + extents.height / 2
+
+    ctx.set_source_rgba(0, 0, 0, 0.4)
+    ctx.move_to(x + 1, y + 1)
+    ctx.show_text(text)
+
+    ctx.set_source_rgb(r, g, b)
+    ctx.move_to(x, y)
+    ctx.show_text(text)
+
+
+def draw_agenda(ctx, size, theme, agenda_events):
+    """Draw agenda events as pie/donut chart slices on the clock face."""
+    agenda_cfg = theme.get("agenda", {})
+    if not agenda_cfg.get("enabled", False) or not agenda_events:
+        return
+
+    center = size / 2
+    radius = size / 2
+    min_r = agenda_cfg.get("min_radius", 0) / 100 * radius
+    max_r = agenda_cfg.get("max_radius", 80) / 100 * radius
+    opacity = agenda_cfg.get("opacity", 35) / 100
+
+    if max_r <= min_r:
+        return
+
+    for ev in agenda_events:
+        start_str = ev.get("start_time", "")
+        end_str = ev.get("end_time", "")
+        color = ev.get("color", "#4488ff")
+        if not start_str or not end_str:
+            continue
+
+        try:
+            sh, sm = int(start_str.split(":")[0]), int(start_str.split(":")[1])
+            eh, em = int(end_str.split(":")[0]), int(end_str.split(":")[1])
+        except (ValueError, IndexError):
+            continue
+
+        # Calculate duration in hours to handle crossing 12-hour boundary
+        start_mins = sh * 60 + sm
+        end_mins = eh * 60 + em
+        if end_mins <= start_mins:
+            end_mins += 24 * 60  # crosses midnight
+        duration_hours = min((end_mins - start_mins) / 60, 12)  # cap at full circle
+
+        # Map to 12-hour clock position
+        start_pos = (sh % 12) + sm / 60
+        start_angle = math.radians(start_pos * 30 - 90)
+        end_angle = start_angle + math.radians(duration_hours * 30)
+
+        r, g, b = _hex_to_rgb(color)
+        ctx.set_source_rgba(r, g, b, opacity)
+
+        # Draw annular sector: outer arc → inner arc (reverse) → close
+        ctx.new_path()
+        ctx.arc(center, center, max_r, start_angle, end_angle)
+        ctx.arc_negative(center, center, min_r, end_angle, start_angle)
+        ctx.close_path()
+        ctx.fill()
+
+
 def _hex_to_rgb(hex_color):
     """Convert hex color string to (r, g, b) floats 0-1."""
     hex_color = hex_color.lstrip("#")

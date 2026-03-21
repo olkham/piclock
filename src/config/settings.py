@@ -43,9 +43,20 @@ def _ensure_tables(conn):
             sound TEXT,
             enabled INTEGER DEFAULT 1,
             label TEXT DEFAULT '',
-            animation_shape TEXT DEFAULT 'ring',
+            animation_shape TEXT DEFAULT 'border_glow',
             animation_color TEXT DEFAULT '#ff3333',
             animation_speed TEXT DEFAULT 'normal',
+            sound_enabled INTEGER DEFAULT 1,
+            animation_duration INTEGER DEFAULT 60,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS agenda_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            start_time TEXT NOT NULL,
+            end_time TEXT NOT NULL,
+            color TEXT DEFAULT '#4488ff',
+            days TEXT DEFAULT '',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
     """)
@@ -53,9 +64,17 @@ def _ensure_tables(conn):
     try:
         conn.execute("SELECT animation_shape FROM alarms LIMIT 1")
     except sqlite3.OperationalError:
-        conn.execute("ALTER TABLE alarms ADD COLUMN animation_shape TEXT DEFAULT 'ring'")
+        conn.execute("ALTER TABLE alarms ADD COLUMN animation_shape TEXT DEFAULT 'border_glow'")
         conn.execute("ALTER TABLE alarms ADD COLUMN animation_color TEXT DEFAULT '#ff3333'")
         conn.execute("ALTER TABLE alarms ADD COLUMN animation_speed TEXT DEFAULT 'normal'")
+    try:
+        conn.execute("SELECT sound_enabled FROM alarms LIMIT 1")
+    except sqlite3.OperationalError:
+        conn.execute("ALTER TABLE alarms ADD COLUMN sound_enabled INTEGER DEFAULT 1")
+    try:
+        conn.execute("SELECT animation_duration FROM alarms LIMIT 1")
+    except sqlite3.OperationalError:
+        conn.execute("ALTER TABLE alarms ADD COLUMN animation_duration INTEGER DEFAULT 60")
     conn.commit()
 
 

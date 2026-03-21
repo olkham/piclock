@@ -40,9 +40,9 @@
             <div>
                 <label class="block text-xs text-slate-400 mb-1">Animation Shape</label>
                 <select x-model="newAlarm.animation_shape" class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
+                    <option value="border_glow">Border Glow</option>
                     <option value="ring">Ring</option>
                     <option value="flash">Flash</option>
-                    <option value="border_glow">Border Glow</option>
                 </select>
             </div>
             <div>
@@ -56,6 +56,16 @@
                     <option value="normal">Normal</option>
                     <option value="fast">Fast</option>
                 </select>
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Duration: <span x-text="newAlarm.animation_duration + 's'"></span></label>
+                <input type="range" x-model.number="newAlarm.animation_duration" min="10" max="300" step="10"
+                       class="w-full bg-slate-700 rounded py-2">
+            </div>
+            <div class="flex items-end">
+                <label class="flex items-center gap-2 text-sm">
+                    <input type="checkbox" x-model="newAlarm.sound_enabled"> Enable sound
+                </label>
             </div>
             <div class="flex items-end">
                 <button @click="addAlarm()"
@@ -111,13 +121,15 @@
                                     class="text-red-400 hover:text-red-300 text-sm">&#10005;</button>
                         </div>
                     </div>
-                    <div class="flex gap-4 mt-2 text-xs text-slate-400">
-                        <span>Shape: <span x-text="alarm.animation_shape || 'ring'"></span></span>
+                    <div class="flex gap-4 mt-2 text-xs text-slate-400 flex-wrap">
+                        <span>Shape: <span x-text="alarm.animation_shape || 'border_glow'"></span></span>
                         <span>Speed: <span x-text="alarm.animation_speed || 'normal'"></span></span>
+                        <span>Duration: <span x-text="(alarm.animation_duration || 60) + 's'"></span></span>
                         <span class="flex items-center gap-1">Color:
                             <span class="inline-block w-3 h-3 rounded-full" :style="`background:${alarm.animation_color||'#ff3333'}`"></span>
                         </span>
                         <span x-show="alarm.sound">Sound: <span x-text="alarm.sound"></span></span>
+                        <span x-show="!alarm.sound_enabled" class="text-yellow-400">&#128263; Muted</span>
                     </div>
                 </div>
             </template>
@@ -132,7 +144,8 @@ function alarmManager() {
         sounds: [],
         newAlarm: {
             time: '', label: '', days: [], sound: '',
-            animation_shape: 'ring', animation_color: '#ff3333', animation_speed: 'normal'
+            animation_shape: 'border_glow', animation_color: '#ff3333', animation_speed: 'normal',
+            sound_enabled: true, animation_duration: 60
         },
 
         async load() {
@@ -163,11 +176,14 @@ function alarmManager() {
                     animation_shape: this.newAlarm.animation_shape,
                     animation_color: this.newAlarm.animation_color,
                     animation_speed: this.newAlarm.animation_speed,
+                    sound_enabled: this.newAlarm.sound_enabled,
+                    animation_duration: this.newAlarm.animation_duration,
                 }),
             });
             this.newAlarm = {
                 time: '', label: '', days: [], sound: '',
-                animation_shape: 'ring', animation_color: '#ff3333', animation_speed: 'normal'
+                animation_shape: 'border_glow', animation_color: '#ff3333', animation_speed: 'normal',
+                sound_enabled: true, animation_duration: 60
             };
             await this.load();
         },

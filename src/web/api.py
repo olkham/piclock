@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 from datetime import datetime, timezone, timedelta
 from zoneinfo import available_timezones, ZoneInfo
 
@@ -147,17 +148,20 @@ def create_api_blueprint():
         try:
             cursor = conn.execute(
                 """INSERT INTO alarms (time, days, sound, enabled, label,
-                   animation_shape, animation_color, animation_speed)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                   animation_shape, animation_color, animation_speed,
+                   sound_enabled, animation_duration)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     data["time"],
                     data.get("days", ""),
                     data.get("sound", "default"),
                     1 if data.get("enabled", True) else 0,
                     data.get("label", ""),
-                    data.get("animation_shape", "ring"),
+                    data.get("animation_shape", "border_glow"),
                     data.get("animation_color", "#ff3333"),
                     data.get("animation_speed", "normal"),
+                    1 if data.get("sound_enabled", True) else 0,
+                    int(data.get("animation_duration", 60)),
                 ),
             )
             conn.commit()
@@ -175,7 +179,8 @@ def create_api_blueprint():
         try:
             conn.execute(
                 """UPDATE alarms SET time=?, days=?, sound=?, enabled=?, label=?,
-                   animation_shape=?, animation_color=?, animation_speed=?
+                   animation_shape=?, animation_color=?, animation_speed=?,
+                   sound_enabled=?, animation_duration=?
                    WHERE id=?""",
                 (
                     data.get("time", ""),
@@ -183,9 +188,11 @@ def create_api_blueprint():
                     data.get("sound", "default"),
                     1 if data.get("enabled", True) else 0,
                     data.get("label", ""),
-                    data.get("animation_shape", "ring"),
+                    data.get("animation_shape", "border_glow"),
                     data.get("animation_color", "#ff3333"),
                     data.get("animation_speed", "normal"),
+                    1 if data.get("sound_enabled", True) else 0,
+                    int(data.get("animation_duration", 60)),
                     alarm_id,
                 ),
             )
@@ -345,6 +352,112 @@ def create_api_blueprint():
             PowerManager.set_brightness(int(data["brightness"]))
 
         return jsonify({"status": "ok"})
+
+    # --- Alarm control (snooze/dismiss) ---
+
+    @bp.route("/alarms/active", methods=["GET"])
+    def alarm_active():
+        scheduler = getattr(current_app, "alarm_scheduler", None)
+        if not scheduler:
+            return jsonify({"active": False})
+        info = scheduler.get_active_alarm_info()
+        return jsonify({"active": info is not None, "alarm": info})
+
+    @bp.route("/alarms/snooze", methods=["POST"])
+    def snooze_alarm():
+        scheduler = getattr(current_app, "alarm_scheduler", None)
+        if not scheduler:
+            return jsonify({"error": "Scheduler not available"}), 503
+        data = request.get_json() or {}
+        delay = int(data.get("delay", 300))
+        delay = max(60, min(delay, 1800))
+        if scheduler.snooze(delay):
+            return jsonify({"status": "snoozed", "delay": delay})
+        return jsonify({"error": "No active alarm"}), 404
+
+    @bp.route("/alarms/dismiss", methods=["POST"])
+    def dismiss_alarm():
+        scheduler = getattr(current_app, "alarm_scheduler", None)
+        if not scheduler:
+            return jsonify({"error": "Scheduler not available"}), 503
+        if scheduler.dismiss():
+            return jsonify({"status": "dismissed"})
+        return jsonify({"error": "No active alarm"}), 404
+
+    # --- Agenda Events ---
+
+    @bp.route("/agenda", methods=["GET"])
+    def list_agenda():
+        from src.config.settings import get_db
+        conn = get_db()
+        try:
+            rows = conn.execute("SELECT * FROM agenda_events ORDER BY start_time").fetchall()
+            return jsonify([dict(row) for row in rows])
+        finally:
+            conn.close()
+
+    @bp.route("/agenda", methods=["POST"])
+    def create_agenda_event():
+        from src.config.settings import get_db
+        data = request.get_json()
+        if not data or "title" not in data or "start_time" not in data or "end_time" not in data:
+            return jsonify({"error": "Missing required fields: title, start_time, end_time"}), 400
+        _TIME_RE = re.compile(r'^\d{1,2}:\d{2}$')
+        if not _TIME_RE.match(data["start_time"]) or not _TIME_RE.match(data["end_time"]):
+            return jsonify({"error": "Invalid time format. Use HH:MM"}), 400
+        conn = get_db()
+        try:
+            cursor = conn.execute(
+                """INSERT INTO agenda_events (title, start_time, end_time, color, days)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (
+                    data["title"],
+                    data["start_time"],
+                    data["end_time"],
+                    data.get("color", "#4488ff"),
+                    data.get("days", ""),
+                ),
+            )
+            conn.commit()
+            return jsonify({"id": cursor.lastrowid, "status": "created"}), 201
+        finally:
+            conn.close()
+
+    @bp.route("/agenda/<int:event_id>", methods=["PUT"])
+    def update_agenda_event(event_id):
+        from src.config.settings import get_db
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "Invalid JSON body"}), 400
+        conn = get_db()
+        try:
+            conn.execute(
+                """UPDATE agenda_events SET title=?, start_time=?, end_time=?, color=?, days=?
+                   WHERE id=?""",
+                (
+                    data.get("title", ""),
+                    data.get("start_time", ""),
+                    data.get("end_time", ""),
+                    data.get("color", "#4488ff"),
+                    data.get("days", ""),
+                    event_id,
+                ),
+            )
+            conn.commit()
+            return jsonify({"status": "ok"})
+        finally:
+            conn.close()
+
+    @bp.route("/agenda/<int:event_id>", methods=["DELETE"])
+    def delete_agenda_event(event_id):
+        from src.config.settings import get_db
+        conn = get_db()
+        try:
+            conn.execute("DELETE FROM agenda_events WHERE id = ?", (event_id,))
+            conn.commit()
+            return jsonify({"status": "ok"})
+        finally:
+            conn.close()
 
     return bp
 

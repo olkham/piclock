@@ -30,6 +30,10 @@ def create_views_blueprint():
     def alarms():
         return render_template("alarms.html")
 
+    @bp.route("/agenda")
+    def agenda():
+        return render_template("agenda.html")
+
     @bp.route("/clock")
     def clock_display():
         settings = current_app.settings

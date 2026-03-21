@@ -9,6 +9,7 @@ let _staticCache = null;   // offscreen canvas for face+markers
 let _cachedThemeJSON = '';  // serialised theme for cache invalidation
 let _previewTimezone = null; // IANA timezone string (e.g. "America/New_York")
 let _bgImageCache = {};    // cache loaded background images by URL
+let _agendaEvents = [];    // cached agenda events for pie chart
 
 function startClockPreview(canvasId, theme, timezone) {
     if (_previewRAF) cancelAnimationFrame(_previewRAF);
@@ -18,6 +19,13 @@ function startClockPreview(canvasId, theme, timezone) {
 
     const canvas = document.getElementById(canvasId);
     if (!canvas || !theme) return;
+
+    // Fetch agenda events for pie chart preview
+    fetch('/api/agenda').then(r => r.json()).then(events => {
+        _agendaEvents = events || [];
+        _staticCache = null;
+        _cachedThemeJSON = '';
+    }).catch(() => { _agendaEvents = []; });
 
     let lastSec = -1;
     function tick() {
@@ -106,6 +114,7 @@ function buildStaticLayer(size, center, radius, theme) {
     ctx.clip();
 
     drawBackground(ctx, size, center, radius, theme);
+    drawAgenda(ctx, center, radius, theme, _agendaEvents);
     drawMarkers(ctx, center, radius, theme);
 
     ctx.restore();
@@ -328,6 +337,52 @@ function drawMarkers(ctx, center, radius, theme) {
     }
 }
 
+/* ── agenda pie chart ────────────────────────────────── */
+
+function drawAgenda(ctx, center, radius, theme, events) {
+    const cfg = theme.agenda || {};
+    if (!cfg.enabled || !events || events.length === 0) return;
+
+    const minR = (cfg.min_radius || 0) / 100 * radius;
+    const maxR = (cfg.max_radius || 80) / 100 * radius;
+    const opacity = (cfg.opacity != null ? cfg.opacity : 35) / 100;
+    if (maxR <= minR) return;
+
+    for (const ev of events) {
+        const startStr = ev.start_time || '';
+        const endStr = ev.end_time || '';
+        const color = ev.color || '#4488ff';
+        if (!startStr || !endStr) continue;
+
+        const sp = startStr.split(':');
+        const ep = endStr.split(':');
+        if (sp.length < 2 || ep.length < 2) continue;
+        const sh = parseInt(sp[0], 10), sm = parseInt(sp[1], 10);
+        const eh = parseInt(ep[0], 10), em = parseInt(ep[1], 10);
+
+        let startMins = sh * 60 + sm;
+        let endMins = eh * 60 + em;
+        if (endMins <= startMins) endMins += 24 * 60;
+        const durationHours = Math.min((endMins - startMins) / 60, 12);
+
+        const startPos = (sh % 12) + sm / 60;
+        const startAngle = (startPos * 30 - 90) * Math.PI / 180;
+        const endAngle = startAngle + durationHours * 30 * Math.PI / 180;
+
+        // Parse color and apply opacity
+        const r = parseInt(color.slice(1, 3), 16);
+        const g = parseInt(color.slice(3, 5), 16);
+        const b = parseInt(color.slice(5, 7), 16);
+        ctx.fillStyle = `rgba(${r},${g},${b},${opacity})`;
+
+        ctx.beginPath();
+        ctx.arc(center, center, maxR, startAngle, endAngle);
+        ctx.arc(center, center, minR, endAngle, startAngle, true);
+        ctx.closePath();
+        ctx.fill();
+    }
+}
+
 /* ── hands ───────────────────────────────────────────── */
 
 function _getStartEnd(cfg, defStart, defEnd) {
@@ -382,6 +437,30 @@ function drawHands(ctx, center, radius, time, theme) {
         ctx.beginPath();
         ctx.arc(center, center, dotR, 0, Math.PI * 2);
         ctx.fill();
+    }
+
+    // Clock text
+    const ct = theme.clock_text || {};
+    if (ct.visible) {
+        const h = time.hour;
+        const m = time.minute;
+        let text;
+        if (ct.format === '24h') {
+            text = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+        } else {
+            const suffix = h < 12 ? ' AM' : ' PM';
+            text = (h % 12 || 12) + ':' + String(m).padStart(2, '0') + suffix;
+        }
+        const scale = radius / 360;
+        const fs = (ct.font_size && ct.font_size > 0) ? ct.font_size * scale : radius * 0.12;
+        const offsetY = (ct.offset_y != null ? ct.offset_y : 25) / 100 * radius;
+        ctx.font = `bold ${fs}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = 'rgba(0,0,0,0.4)';
+        ctx.fillText(text, center + 1, center + offsetY + 1);
+        ctx.fillStyle = hexToCSS(ct.color || '#ffffff');
+        ctx.fillText(text, center, center + offsetY);
     }
 }
 

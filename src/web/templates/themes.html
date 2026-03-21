@@ -54,6 +54,10 @@
                             class="bg-green-600 hover:bg-green-700 text-white text-sm px-3 py-1 rounded">
                         Save
                     </button>
+                    <button @click="saveAsNewTheme()"
+                            class="bg-purple-600 hover:bg-purple-700 text-white text-sm px-3 py-1 rounded">
+                        Save As New
+                    </button>
                     <button @click="deleteTheme()"
                             class="bg-red-600 hover:bg-red-700 text-white text-sm px-3 py-1 rounded">
                         Delete
@@ -355,6 +359,40 @@
                     <label class="block text-xs text-slate-400 mb-1">Radius: <span x-text="theme.center_dot.radius"></span></label>
                     <input type="range" x-model.number="theme.center_dot.radius" min="2" max="15" step="1" class="w-full">
                 </fieldset>
+
+                <!-- Clock Text -->
+                <fieldset class="border border-slate-600 rounded p-3 md:col-span-2">
+                    <legend class="text-sm text-slate-400 px-1">Clock Text</legend>
+                    <label class="flex items-center gap-2 text-sm mb-2">
+                        <input type="checkbox" x-model="theme.clock_text.visible"> Show time as text
+                    </label>
+                    <label class="block text-xs text-slate-400 mb-1">Format</label>
+                    <select x-model="theme.clock_text.format" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm mb-2">
+                        <option value="12h">12-hour (AM/PM)</option>
+                        <option value="24h">24-hour</option>
+                    </select>
+                    <label class="block text-xs text-slate-400 mb-1">Color</label>
+                    <input type="color" x-model="theme.clock_text.color" class="w-full h-8 rounded mb-2">
+                    <label class="block text-xs text-slate-400 mb-1">Font Size (0=auto): <span x-text="theme.clock_text.font_size"></span></label>
+                    <input type="range" x-model.number="theme.clock_text.font_size" min="0" max="80" step="1" class="w-full mb-2">
+                    <label class="block text-xs text-slate-400 mb-1">Vertical Offset: <span x-text="theme.clock_text.offset_y + '%'"></span></label>
+                    <input type="range" x-model.number="theme.clock_text.offset_y" min="-50" max="50" step="1" class="w-full">
+                </fieldset>
+
+                <!-- Agenda -->
+                <fieldset class="border border-slate-600 rounded p-3 md:col-span-2">
+                    <legend class="text-sm text-slate-400 px-1">Agenda</legend>
+                    <label class="flex items-center gap-2 text-sm mb-2">
+                        <input type="checkbox" x-model="theme.agenda.enabled"> Enable agenda pie chart
+                    </label>
+                    <p class="text-xs text-slate-500 mb-2">Shows today's events as colored slices on the clock face. <a href="/agenda" class="text-blue-400 hover:text-blue-300">Manage events &rarr;</a></p>
+                    <label class="block text-xs text-slate-400 mb-1">Inner Radius: <span x-text="theme.agenda.min_radius + '%'"></span></label>
+                    <input type="range" x-model.number="theme.agenda.min_radius" min="0" max="95" step="5" class="w-full mb-2">
+                    <label class="block text-xs text-slate-400 mb-1">Outer Radius: <span x-text="theme.agenda.max_radius + '%'"></span></label>
+                    <input type="range" x-model.number="theme.agenda.max_radius" min="5" max="100" step="5" class="w-full mb-2">
+                    <label class="block text-xs text-slate-400 mb-1">Opacity: <span x-text="theme.agenda.opacity + '%'"></span></label>
+                    <input type="range" x-model.number="theme.agenda.opacity" min="5" max="100" step="5" class="w-full">
+                </fieldset>
             </div>
         </div><!-- end card / editor controls -->
 
@@ -410,6 +448,8 @@ function themeEditor() {
                 if (this.theme.hands[h].end == null) this.theme.hands[h].end = Math.round((this.theme.hands[h].length || 0.5) * 100);
             });
             if (!this.theme.alarm_indicators) this.theme.alarm_indicators = {visible:true, color:'#ffaa00', size:4};
+            if (!this.theme.clock_text) this.theme.clock_text = {visible:false, format:'12h', color:'#ffffff', font_size:0, offset_y:25};
+            if (!this.theme.agenda) this.theme.agenda = {enabled:false, min_radius:0, max_radius:80, opacity:35};
 
             this.$nextTick(() => {
                 startClockPreview('theme-preview', this.theme);
@@ -423,6 +463,22 @@ function themeEditor() {
                 body: JSON.stringify(this.theme),
             });
             startClockPreview('theme-preview', this.theme);
+        },
+
+        async saveAsNewTheme() {
+            const name = prompt('Enter a name for the new theme:');
+            if (!name || !name.trim()) return;
+            const trimmed = name.trim();
+            const data = Object.assign({}, this.theme, { name: trimmed });
+            const resp = await fetch('/api/themes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+            if (resp.ok) {
+                if (!this.themes.includes(trimmed)) this.themes.push(trimmed);
+                await this.loadTheme(trimmed);
+            }
         },
 
         async activateTheme() {

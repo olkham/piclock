@@ -84,6 +84,19 @@ THEME_SCHEMA = {
         "color": str,
         "size": (int, float),
     },
+    "clock_text": {
+        "visible": bool,
+        "format": str,          # "12h", "24h"
+        "color": str,
+        "font_size": (int, float),   # 0 = auto
+        "offset_y": (int, float),    # % of radius, positive = below center
+    },
+    "agenda": {
+        "enabled": bool,
+        "min_radius": (int, float),  # % of clock radius for inner edge
+        "max_radius": (int, float),  # % of clock radius for outer edge
+        "opacity": (int, float),     # 0-100, fill opacity
+    },
 }
 
 
@@ -164,6 +177,19 @@ DEFAULT_THEME = {
         "visible": True,
         "color": "#ffaa00",
         "size": 4.0,
+    },
+    "clock_text": {
+        "visible": False,
+        "format": "12h",
+        "color": "#ffffff",
+        "font_size": 0,
+        "offset_y": 25,
+    },
+    "agenda": {
+        "enabled": False,
+        "min_radius": 0,
+        "max_radius": 80,
+        "opacity": 35,
     },
 }
 

@@ -14,6 +14,8 @@ class AlarmScheduler:
         self._timer = None
         self._running = False
         self._active_alarm = None
+        self._dismiss_timer = None
+        self._lock = threading.Lock()
 
     def start(self):
         self._running = True
@@ -78,33 +80,76 @@ class AlarmScheduler:
                         conn.close()
 
     def _trigger_alarm(self, alarm):
-        if self._active_alarm:
-            return  # Already ringing
+        with self._lock:
+            if self._active_alarm:
+                return  # Already ringing
 
-        self._active_alarm = alarm
+            self._active_alarm = alarm
 
-        # Audio
-        from src.alarms.audio import play_alarm_sound
-        sound_name = alarm.get("sound", "default")
-        play_alarm_sound(sound_name)
+        # Audio (only if sound is enabled for this alarm)
+        sound_enabled = alarm.get("sound_enabled", 1)
+        if sound_enabled:
+            from src.alarms.audio import play_alarm_sound
+            sound_name = alarm.get("sound", "default")
+            play_alarm_sound(sound_name)
 
         # Visual overlay on the clock
         from src.alarms.visual import AlarmOverlay
         overlay = AlarmOverlay(
             label=alarm.get("label", "Alarm"),
-            shape=alarm.get("animation_shape", "ring"),
+            shape=alarm.get("animation_shape", "border_glow"),
             color=alarm.get("animation_color", "#ff3333"),
             speed=alarm.get("animation_speed", "normal"),
         )
         self._engine.set_overlay(overlay.draw)
 
-        # Auto-dismiss after 60 seconds
-        dismiss_timer = threading.Timer(60, self._stop_alarm)
-        dismiss_timer.daemon = True
-        dismiss_timer.start()
+        # Auto-dismiss after configured duration
+        duration = int(alarm.get("animation_duration", 60))
+        self._dismiss_timer = threading.Timer(duration, self._stop_alarm)
+        self._dismiss_timer.daemon = True
+        self._dismiss_timer.start()
+
+    def snooze(self, delay_seconds=300):
+        """Snooze the active alarm for the given delay."""
+        with self._lock:
+            if not self._active_alarm:
+                return False
+            alarm = self._active_alarm
+        self._stop_alarm()
+        snooze_timer = threading.Timer(delay_seconds, self._trigger_alarm, args=[alarm])
+        snooze_timer.daemon = True
+        snooze_timer.start()
+        return True
+
+    def dismiss(self):
+        """Dismiss the active alarm."""
+        with self._lock:
+            if not self._active_alarm:
+                return False
+        self._stop_alarm()
+        return True
+
+    def has_active_alarm(self):
+        """Check if an alarm is currently active."""
+        return self._active_alarm is not None
+
+    def get_active_alarm_info(self):
+        """Get info about the currently active alarm."""
+        with self._lock:
+            if self._active_alarm:
+                return {
+                    "id": self._active_alarm.get("id"),
+                    "label": self._active_alarm.get("label", "Alarm"),
+                    "time": self._active_alarm.get("time", ""),
+                }
+            return None
 
     def _stop_alarm(self):
-        self._active_alarm = None
+        with self._lock:
+            self._active_alarm = None
+            if self._dismiss_timer:
+                self._dismiss_timer.cancel()
+                self._dismiss_timer = None
         self._engine.set_overlay(None)
         from src.alarms.audio import stop_alarm_sound
         stop_alarm_sound()

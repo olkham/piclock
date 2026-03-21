@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}PiClock3 — Agenda{% endblock %}
+{% block content %}
+<div x-data="agendaManager()" x-init="load()">
+    <h1 class="text-2xl font-bold mb-6">Agenda Events</h1>
+
+    <div class="card mb-6">
+        <h2 class="text-lg font-semibold mb-4">Add Event</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Title</label>
+                <input type="text" x-model="newEvent.title" placeholder="Event name"
+                       class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Color</label>
+                <input type="color" x-model="newEvent.color" class="w-full h-9 rounded">
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Start Time</label>
+                <input type="time" x-model="newEvent.start_time"
+                       class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">End Time</label>
+                <input type="time" x-model="newEvent.end_time"
+                       class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Repeat Days (empty = every day)</label>
+                <div class="flex gap-1 flex-wrap">
+                    <template x-for="day in ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']" :key="day">
+                        <button @click="toggleDay(day)"
+                                :class="newEvent.days.includes(day) ? 'bg-blue-600' : 'bg-slate-600'"
+                                class="text-xs px-2 py-1 rounded" x-text="day">
+                        </button>
+                    </template>
+                </div>
+            </div>
+            <div class="flex items-end">
+                <button @click="addEvent()"
+                        class="w-full bg-green-600 hover:bg-green-700 text-white text-sm px-4 py-2 rounded">
+                    Add Event
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2 class="text-lg font-semibold mb-4">Events</h2>
+        <div x-show="events.length === 0" class="text-slate-400 text-sm">No events added yet.</div>
+        <div class="space-y-3">
+            <template x-for="ev in events" :key="ev.id">
+                <div class="p-3 bg-slate-700 rounded">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <span class="inline-block w-4 h-4 rounded-full flex-shrink-0"
+                                  :style="`background:${ev.color || '#4488ff'}`"></span>
+                            <span class="font-medium" x-text="ev.title"></span>
+                            <span class="text-sm text-slate-400" x-text="ev.start_time + ' — ' + ev.end_time"></span>
+                            <span class="text-xs text-slate-500" x-text="ev.days || 'Every day'"></span>
+                        </div>
+                        <button @click="removeEvent(ev.id)"
+                                class="text-red-400 hover:text-red-300 text-sm">&#10005;</button>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <div class="card mt-6">
+        <p class="text-sm text-slate-400">
+            Enable the agenda pie chart in <a href="/themes" class="text-blue-400 hover:text-blue-300">Theme Editor</a>
+            under the <strong>Agenda</strong> section to display events on the clock face.
+        </p>
+    </div>
+</div>
+
+<script>
+function agendaManager() {
+    return {
+        events: [],
+        newEvent: {
+            title: '', start_time: '', end_time: '', color: '#4488ff', days: []
+        },
+
+        async load() {
+            const resp = await fetch('/api/agenda');
+            this.events = await resp.json();
+        },
+
+        toggleDay(day) {
+            const idx = this.newEvent.days.indexOf(day);
+            if (idx >= 0) this.newEvent.days.splice(idx, 1);
+            else this.newEvent.days.push(day);
+        },
+
+        async addEvent() {
+            if (!this.newEvent.title || !this.newEvent.start_time || !this.newEvent.end_time) return;
+            await fetch('/api/agenda', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: this.newEvent.title,
+                    start_time: this.newEvent.start_time,
+                    end_time: this.newEvent.end_time,
+                    color: this.newEvent.color,
+                    days: this.newEvent.days.join(','),
+                }),
+            });
+            this.newEvent = { title: '', start_time: '', end_time: '', color: '#4488ff', days: [] };
+            await this.load();
+        },
+
+        async removeEvent(id) {
+            await fetch(`/api/agenda/${id}`, { method: 'DELETE' });
+            await this.load();
+        },
+    };
+}
+</script>
+{% endblock %}

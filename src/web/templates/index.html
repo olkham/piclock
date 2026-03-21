@@ -4,6 +4,27 @@
 <div x-data="dashboard()" x-init="init()">
     <h1 class="text-2xl font-bold mb-6">Dashboard</h1>
 
+    <!-- Active Alarm Banner -->
+    <div x-show="activeAlarm" class="card mb-6 border-2 border-red-500 bg-red-900/30">
+        <div class="flex items-center justify-between">
+            <div>
+                <span class="text-lg font-bold text-red-400">&#128276; Alarm Ringing!</span>
+                <span class="ml-2 text-sm text-slate-300" x-text="activeAlarm?.label || 'Alarm'"></span>
+                <span class="ml-2 text-xs text-slate-400" x-text="activeAlarm?.time || ''"></span>
+            </div>
+            <div class="flex gap-2">
+                <button @click="snoozeAlarm()"
+                        class="bg-yellow-600 hover:bg-yellow-700 text-white text-sm px-4 py-2 rounded">
+                    Snooze 5 min
+                </button>
+                <button @click="dismissAlarm()"
+                        class="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-2 rounded">
+                    Dismiss
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <!-- Status Card -->
         <div class="card">
@@ -97,6 +118,7 @@ function dashboard() {
             { value: 'Etc/GMT-12', label: 'GMT+12: Auckland, Fiji' },
         ],
         smoothHands: false,
+        activeAlarm: null,
 
         async init() {
             await this.loadTheme();
@@ -105,6 +127,9 @@ function dashboard() {
             const sResp = await fetch('/api/settings');
             const allSettings = await sResp.json();
             this.smoothHands = allSettings.smooth_hands === 'true';
+            // Poll for active alarm
+            this.pollAlarm();
+            setInterval(() => this.pollAlarm(), 5000);
         },
 
         async loadTheme() {
@@ -134,6 +159,28 @@ function dashboard() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ smooth_hands: this.smoothHands ? 'true' : 'false' }),
             });
+        },
+
+        async pollAlarm() {
+            try {
+                const resp = await fetch('/api/alarms/active');
+                const data = await resp.json();
+                this.activeAlarm = data.active ? data.alarm : null;
+            } catch { this.activeAlarm = null; }
+        },
+
+        async snoozeAlarm() {
+            await fetch('/api/alarms/snooze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ delay: 300 }),
+            });
+            this.activeAlarm = null;
+        },
+
+        async dismissAlarm() {
+            await fetch('/api/alarms/dismiss', { method: 'POST' });
+            this.activeAlarm = null;
         },
     };
 }

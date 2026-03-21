@@ -73,6 +73,10 @@ def main():
     alarm_scheduler = AlarmScheduler(settings, engine)
     alarm_scheduler.start()
 
+    # Attach scheduler to Flask app for snooze/dismiss API
+    if not args.no_web:
+        app.alarm_scheduler = alarm_scheduler
+
     try:
         # Run clock (blocks)
         engine.run()

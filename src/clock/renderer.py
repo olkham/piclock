@@ -19,7 +19,7 @@ def cairo_surface_to_pygame(surface):
     return pygame.image.frombuffer(arr.tobytes(), (DISPLAY_SIZE, DISPLAY_SIZE), "RGBA")
 
 
-def render_frame(time_info, theme, overlay_fn=None, alarms=None):
+def render_frame(time_info, theme, overlay_fn=None, alarms=None, agenda_events=None):
     """Render a complete clock frame.
 
     Args:
@@ -27,11 +27,12 @@ def render_frame(time_info, theme, overlay_fn=None, alarms=None):
         theme: dict with full theme configuration
         overlay_fn: optional callable(ctx, size) drawn on top of the clock
         alarms: optional list of alarm dicts for indicator rendering
+        agenda_events: optional list of agenda event dicts for pie chart
 
     Returns:
         A Pygame surface with the rendered clock.
     """
-    from src.clock.face import draw_background, draw_markers, draw_alarm_indicators
+    from src.clock.face import draw_background, draw_markers, draw_alarm_indicators, draw_clock_text, draw_agenda
     from src.clock.hands import draw_hands
     from src.clock.effects import apply_circular_mask
 
@@ -42,6 +43,10 @@ def render_frame(time_info, theme, overlay_fn=None, alarms=None):
     # Draw background
     draw_background(ctx, size, theme)
 
+    # Draw agenda pie chart (behind markers and hands)
+    if agenda_events:
+        draw_agenda(ctx, size, theme, agenda_events)
+
     # Draw markers
     draw_markers(ctx, size, theme)
 
@@ -51,6 +56,9 @@ def render_frame(time_info, theme, overlay_fn=None, alarms=None):
 
     # Draw hands
     draw_hands(ctx, size, time_info, theme)
+
+    # Draw clock text overlay
+    draw_clock_text(ctx, size, time_info, theme)
 
     # Draw overlay (e.g., alarm visual)
     if overlay_fn:

@@ -32,6 +32,8 @@ class ClockEngine:
         self._overlay_fn = None
         self._alarm_active = False
         self._alarms = []
+        self._agenda_events = []
+        self._agenda_last_load = 0
         self._is_pi_zero = _is_pi_zero()
 
     def set_alarm_callback(self, callback):
@@ -46,6 +48,32 @@ class ClockEngine:
     def set_alarms(self, alarms):
         """Update the list of alarms for indicator rendering."""
         self._alarms = alarms
+
+    def _maybe_reload_agenda(self, current_day):
+        """Reload agenda events from DB every 60 seconds."""
+        now_ts = time.time()
+        if now_ts - self._agenda_last_load < 60:
+            return
+        self._agenda_last_load = now_ts
+        from src.config.settings import get_db
+        conn = get_db()
+        try:
+            rows = conn.execute("SELECT * FROM agenda_events").fetchall()
+            all_events = [dict(row) for row in rows]
+        except Exception:
+            all_events = []
+        finally:
+            conn.close()
+        # Filter to events active today
+        filtered = []
+        for ev in all_events:
+            days = ev.get("days", "")
+            if days:
+                day_list = [d.strip() for d in days.split(",") if d.strip()]
+                if current_day not in day_list:
+                    continue
+            filtered.append(ev)
+        self._agenda_events = filtered
 
     def run(self):
         """Run the clock loop. Blocks until stop() is called or window is closed."""
@@ -89,11 +117,15 @@ class ClockEngine:
                 # Snap second hand to integer seconds even during alarm animation
                 time_info["microsecond"] = 0
 
+            # Reload agenda events periodically
+            self._maybe_reload_agenda(now.strftime("%a"))
+
             # Render frame (with optional alarm overlay + alarm indicators)
             surface = render_frame(
                 time_info, theme,
                 overlay_fn=self._overlay_fn,
                 alarms=self._alarms,
+                agenda_events=self._agenda_events,
             )
 
             # Show frame
