@@ -187,8 +187,10 @@
                         </div>
                     </template>
 
-                    <label class="flex items-center gap-2 mt-2 text-sm">
-                        <input type="checkbox" x-model="theme.markers.hour_shadow"> Marker shadow
+                    <label class="toggle-switch mt-2">
+                        <input type="checkbox" x-model="theme.markers.hour_shadow">
+                        <div class="toggle-track"></div>
+                        <span class="ml-2 text-sm">Marker shadow</span>
                     </label>
                 </fieldset>
 
@@ -228,8 +230,10 @@
                 <!-- Minute Markers -->
                 <fieldset class="border border-slate-600 rounded p-3">
                     <legend class="text-sm text-slate-400 px-1">Minute Markers</legend>
-                    <label class="flex items-center gap-2 text-sm mb-2">
-                        <input type="checkbox" x-model="theme.markers.show_minutes"> Show minute markers
+                    <label class="toggle-switch mb-2">
+                        <input type="checkbox" x-model="theme.markers.show_minutes">
+                        <div class="toggle-track"></div>
+                        <span class="ml-2 text-sm">Show minute markers</span>
                     </label>
                     <label class="block text-xs text-slate-400 mb-1">Style</label>
                     <select x-model="theme.markers.minute_style" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm mb-2">
@@ -256,16 +260,20 @@
                             <input type="range" x-model.number="theme.markers.minute_marker_radius" min="50" max="100" step="1" class="w-full">
                         </div>
                     </template>
-                    <label class="flex items-center gap-2 mt-2 text-sm">
-                        <input type="checkbox" x-model="theme.markers.minute_shadow"> Marker shadow
+                    <label class="toggle-switch mt-2">
+                        <input type="checkbox" x-model="theme.markers.minute_shadow">
+                        <div class="toggle-track"></div>
+                        <span class="ml-2 text-sm">Marker shadow</span>
                     </label>
                 </fieldset>
 
                 <!-- Alarm Indicators -->
                 <fieldset class="border border-slate-600 rounded p-3">
                     <legend class="text-sm text-slate-400 px-1">Alarm Indicators</legend>
-                    <label class="flex items-center gap-2 text-sm mb-2">
-                        <input type="checkbox" x-model="theme.alarm_indicators.visible"> Show alarm indicators
+                    <label class="toggle-switch mb-2">
+                        <input type="checkbox" x-model="theme.alarm_indicators.visible">
+                        <div class="toggle-track"></div>
+                        <span class="ml-2 text-sm">Show alarm indicators</span>
                     </label>
                     <label class="block text-xs text-slate-400 mb-1">Color</label>
                     <input type="color" x-model="theme.alarm_indicators.color" class="w-full h-8 rounded mb-2">
@@ -292,11 +300,15 @@
                     <label class="block text-xs text-slate-400 mb-1">Hand Image (optional)</label>
                     <input type="file" accept="image/*" @change="uploadHandImage($event, 'hour')" class="text-xs text-slate-400 mb-1">
                     <p class="text-xs text-slate-500 truncate max-w-full mb-2" x-show="theme.hands.hour.image" :title="theme.hands.hour.image" x-text="'Image: ' + (theme.hands.hour.image || '').split(/[\\\\/]/).pop()"></p>
-                    <label class="flex items-center gap-2 text-sm">
-                        <input type="checkbox" x-model="theme.hands.hour.shadow"> Shadow
+                    <label class="toggle-switch">
+                        <input type="checkbox" x-model="theme.hands.hour.shadow">
+                        <div class="toggle-track"></div>
+                        <span class="ml-2 text-sm">Shadow</span>
                     </label>
-                    <label class="flex items-center gap-2 text-sm mt-1">
-                        <input type="checkbox" x-model="theme.hands.hour.glow"> Glow
+                    <label class="toggle-switch mt-1">
+                        <input type="checkbox" x-model="theme.hands.hour.glow">
+                        <div class="toggle-track"></div>
+                        <span class="ml-2 text-sm">Glow</span>
                     </label>
                     <template x-if="theme.hands.hour.glow">
                         <div class="mt-1">
@@ -325,11 +337,15 @@
                     <label class="block text-xs text-slate-400 mb-1">Hand Image (optional)</label>
                     <input type="file" accept="image/*" @change="uploadHandImage($event, 'minute')" class="text-xs text-slate-400 mb-1">
                     <p class="text-xs text-slate-500 truncate max-w-full mb-2" x-show="theme.hands.minute.image" :title="theme.hands.minute.image" x-text="'Image: ' + (theme.hands.minute.image || '').split(/[\\\\/]/).pop()"></p>
-                    <label class="flex items-center gap-2 text-sm">
-                        <input type="checkbox" x-model="theme.hands.minute.shadow"> Shadow
+                    <label class="toggle-switch">
+                        <input type="checkbox" x-model="theme.hands.minute.shadow">
+                        <div class="toggle-track"></div>
+                        <span class="ml-2 text-sm">Shadow</span>
                     </label>
-                    <label class="flex items-center gap-2 text-sm mt-1">
-                        <input type="checkbox" x-model="theme.hands.minute.glow"> Glow
+                    <label class="toggle-switch mt-1">
+                        <input type="checkbox" x-model="theme.hands.minute.glow">
+                        <div class="toggle-track"></div>
+                        <span class="ml-2 text-sm">Glow</span>
                     </label>
                     <template x-if="theme.hands.minute.glow">
                         <div class="mt-1">
@@ -342,11 +358,15 @@
                 <!-- Second Hand -->
                 <fieldset class="border border-slate-600 rounded p-3 md:col-span-2">
                     <legend class="text-sm text-slate-400 px-1">Second Hand</legend>
-                    <label class="flex items-center gap-2 text-sm mb-2">
-                        <input type="checkbox" x-model="theme.hands.second.visible"> Show second hand
+                    <label class="toggle-switch mb-2">
+                        <input type="checkbox" x-model="theme.hands.second.visible">
+                        <div class="toggle-track"></div>
+                        <span class="ml-2 text-sm">Show second hand</span>
                     </label>
-                    <label class="flex items-center gap-2 text-sm mb-2">
-                        <input type="checkbox" x-model="theme.hands.second.smooth"> Smooth motion (15 fps)
+                    <label class="toggle-switch mb-2">
+                        <input type="checkbox" x-model="theme.hands.second.smooth">
+                        <div class="toggle-track"></div>
+                        <span class="ml-2 text-sm">Smooth motion</span>
                     </label>
                     <label class="block text-xs text-slate-400 mb-1">Color</label>
                     <input type="color" x-model="theme.hands.second.color" class="w-full h-8 rounded mb-2">
@@ -357,8 +377,10 @@
                     <label class="block text-xs text-slate-400 mb-1">Hand Image (optional)</label>
                     <input type="file" accept="image/*" @change="uploadHandImage($event, 'second')" class="text-xs text-slate-400 mb-1">
                     <p class="text-xs text-slate-500 truncate max-w-full mb-2" x-show="theme.hands.second.image" :title="theme.hands.second.image" x-text="'Image: ' + (theme.hands.second.image || '').split(/[\\\\/]/).pop()"></p>
-                    <label class="flex items-center gap-2 text-sm">
-                        <input type="checkbox" x-model="theme.hands.second.counterweight"> Show counterweight
+                    <label class="toggle-switch">
+                        <input type="checkbox" x-model="theme.hands.second.counterweight">
+                        <div class="toggle-track"></div>
+                        <span class="ml-2 text-sm">Show counterweight</span>
                     </label>
                     <template x-if="theme.hands.second.counterweight">
                         <div class="mt-1">
@@ -366,11 +388,15 @@
                             <input type="range" x-model.number="theme.hands.second.counterweight_radius" min="0.01" max="0.08" step="0.005" class="w-full">
                         </div>
                     </template>
-                    <label class="flex items-center gap-2 text-sm mt-2">
-                        <input type="checkbox" x-model="theme.hands.second.shadow"> Shadow
+                    <label class="toggle-switch mt-2">
+                        <input type="checkbox" x-model="theme.hands.second.shadow">
+                        <div class="toggle-track"></div>
+                        <span class="ml-2 text-sm">Shadow</span>
                     </label>
-                    <label class="flex items-center gap-2 text-sm mt-1">
-                        <input type="checkbox" x-model="theme.hands.second.glow"> Glow
+                    <label class="toggle-switch mt-1">
+                        <input type="checkbox" x-model="theme.hands.second.glow">
+                        <div class="toggle-track"></div>
+                        <span class="ml-2 text-sm">Glow</span>
                     </label>
                     <template x-if="theme.hands.second.glow">
                         <div class="mt-1">
@@ -383,8 +409,10 @@
                 <!-- Center Dot -->
                 <fieldset class="border border-slate-600 rounded p-3 md:col-span-2">
                     <legend class="text-sm text-slate-400 px-1">Center Dot</legend>
-                    <label class="flex items-center gap-2 text-sm mb-2">
-                        <input type="checkbox" x-model="theme.center_dot.visible"> Show center dot
+                    <label class="toggle-switch mb-2">
+                        <input type="checkbox" x-model="theme.center_dot.visible">
+                        <div class="toggle-track"></div>
+                        <span class="ml-2 text-sm">Show center dot</span>
                     </label>
                     <label class="block text-xs text-slate-400 mb-1">Color</label>
                     <input type="color" x-model="theme.center_dot.color" class="w-full h-8 rounded mb-2">
@@ -395,8 +423,10 @@
                 <!-- Clock Text -->
                 <fieldset class="border border-slate-600 rounded p-3 md:col-span-2">
                     <legend class="text-sm text-slate-400 px-1">Clock Text</legend>
-                    <label class="flex items-center gap-2 text-sm mb-2">
-                        <input type="checkbox" x-model="theme.clock_text.visible"> Show time as text
+                    <label class="toggle-switch mb-2">
+                        <input type="checkbox" x-model="theme.clock_text.visible">
+                        <div class="toggle-track"></div>
+                        <span class="ml-2 text-sm">Show time as text</span>
                     </label>
                     <label class="block text-xs text-slate-400 mb-1">Format</label>
                     <select x-model="theme.clock_text.format" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm mb-2">
@@ -414,11 +444,15 @@
                 <!-- Date Display -->
                 <fieldset class="border border-slate-600 rounded p-3 md:col-span-2">
                     <legend class="text-sm text-slate-400 px-1">Date Display</legend>
-                    <label class="flex items-center gap-2 text-sm mb-2">
-                        <input type="checkbox" x-model="theme.date_display.visible"> Show date
+                    <label class="toggle-switch mb-2">
+                        <input type="checkbox" x-model="theme.date_display.visible">
+                        <div class="toggle-track"></div>
+                        <span class="ml-2 text-sm">Show date</span>
                     </label>
-                    <label class="flex items-center gap-2 text-sm mb-2">
-                        <input type="checkbox" x-model="theme.date_display.show_day_of_week"> Show day of week
+                    <label class="toggle-switch mb-2">
+                        <input type="checkbox" x-model="theme.date_display.show_day_of_week">
+                        <div class="toggle-track"></div>
+                        <span class="ml-2 text-sm">Show day of week</span>
                     </label>
                     <label class="block text-xs text-slate-400 mb-1">Color</label>
                     <input type="color" x-model="theme.date_display.color" class="w-full h-8 rounded mb-2">
@@ -431,11 +465,15 @@
                 <!-- Agenda -->
                 <fieldset class="border border-slate-600 rounded p-3 md:col-span-2">
                     <legend class="text-sm text-slate-400 px-1">Agenda</legend>
-                    <label class="flex items-center gap-2 text-sm mb-2">
-                        <input type="checkbox" x-model="theme.agenda.enabled"> Enable agenda pie chart
+                    <label class="toggle-switch mb-2">
+                        <input type="checkbox" x-model="theme.agenda.enabled">
+                        <div class="toggle-track"></div>
+                        <span class="ml-2 text-sm">Enable agenda pie chart</span>
                     </label>
-                    <label class="flex items-center gap-2 text-sm mb-2">
-                        <input type="checkbox" x-model="theme.agenda.show_current_event"> Show current event title on clock face
+                    <label class="toggle-switch mb-2">
+                        <input type="checkbox" x-model="theme.agenda.show_current_event">
+                        <div class="toggle-track"></div>
+                        <span class="ml-2 text-sm">Show current event title on clock face</span>
                     </label>
                     <p class="text-xs text-slate-500 mb-2">Shows today's events as colored slices on the clock face. <a href="/agenda" class="text-blue-400 hover:text-blue-300">Manage events &rarr;</a></p>
                     <label class="block text-xs text-slate-400 mb-1">Inner Radius: <span x-text="theme.agenda.min_radius + '%'"></span></label>

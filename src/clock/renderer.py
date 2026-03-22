@@ -17,6 +17,10 @@ _frame_data = bytearray(DISPLAY_SIZE * DISPLAY_SIZE * 4)
 _frame_surface = cairo.ImageSurface.create_for_data(
     _frame_data, cairo.FORMAT_ARGB32, DISPLAY_SIZE, DISPLAY_SIZE, DISPLAY_SIZE * 4
 )
+# Pre-allocated numpy view of the Cairo buffer — avoids per-frame frombuffer/reshape
+_src_arr = np.frombuffer(_frame_data, dtype=np.uint8).reshape(
+    DISPLAY_SIZE, DISPLAY_SIZE, 4
+)
 
 # Shared output buffer: numpy view writes directly into the bytearray that
 # Pygame reads from — no intermediate copies or per-frame allocations.
@@ -143,9 +147,8 @@ def render_frame(time_info, theme, overlay_fn=None, alarms=None, agenda_events=N
     _frame_surface.flush()
 
     # Convert Cairo BGRA → Pygame RGB via shared buffer (zero allocation)
-    src = np.frombuffer(_frame_data, dtype=np.uint8).reshape(size, size, 4)
-    _conv_arr[:, :, 0] = src[:, :, 2]  # R ← B
-    _conv_arr[:, :, 1] = src[:, :, 1]  # G
-    _conv_arr[:, :, 2] = src[:, :, 0]  # B ← R
+    _conv_arr[:, :, 0] = _src_arr[:, :, 2]  # R ← B
+    _conv_arr[:, :, 1] = _src_arr[:, :, 1]  # G
+    _conv_arr[:, :, 2] = _src_arr[:, :, 0]  # B ← R
     # _conv_arr writes directly into _conv_buf — no copy needed
     return _conv_buf

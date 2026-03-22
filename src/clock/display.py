@@ -12,6 +12,10 @@ _screen = None
 # Persistent Pygame surface reused every frame (avoids per-frame surface creation)
 _frame_pg_surface = None
 
+# Cached numpy views for the RGB buffer — avoids per-frame frombuffer/reshape/transpose
+_display_arr = None
+_display_arr_t = None
+
 
 def apply_sdl_hints(settings=None, use_kms=False):
     """Apply SDL environment hints. Must be called BEFORE pygame.init().
@@ -88,11 +92,15 @@ def show_frame_from_buffer(rgb_buffer):
     directly into the persistent surface's pixel buffer via surfarray,
     eliminating per-frame Surface allocation.
     """
+    global _display_arr, _display_arr_t
     if _screen is None:
         raise RuntimeError("Display not initialized. Call init_display() first.")
     assert _frame_pg_surface is not None
-    arr = np.frombuffer(rgb_buffer, dtype=np.uint8).reshape(DISPLAY_SIZE, DISPLAY_SIZE, 3)
-    pygame.surfarray.blit_array(_frame_pg_surface, arr.transpose(1, 0, 2))
+    # Cache numpy view + transposed view (buffer is always the same object)
+    if _display_arr is None:
+        _display_arr = np.frombuffer(rgb_buffer, dtype=np.uint8).reshape(DISPLAY_SIZE, DISPLAY_SIZE, 3)
+        _display_arr_t = _display_arr.transpose(1, 0, 2)
+    pygame.surfarray.blit_array(_frame_pg_surface, _display_arr_t)
     _screen.blit(_frame_pg_surface, (0, 0))
     pygame.display.flip()
 

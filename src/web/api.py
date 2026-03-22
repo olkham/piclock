@@ -8,11 +8,12 @@ import subprocess
 import threading
 import urllib.request
 from datetime import datetime, timezone, timedelta
-from importlib.metadata import version as pkg_version
 from zoneinfo import available_timezones, ZoneInfo
 
 from flask import Blueprint, Response, current_app, jsonify, request, send_from_directory
 from PIL import Image
+
+from src._version import __version__
 
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data", "uploads")
 SOUNDS_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data", "sounds")
@@ -383,19 +384,12 @@ def create_api_blueprint():
 
     @bp.route("/version", methods=["GET"])
     def get_version():
-        try:
-            ver = pkg_version("piclock3")
-        except Exception:
-            ver = "0.1.0"
-        return jsonify({"version": ver})
+        return jsonify({"version": __version__})
 
     @bp.route("/update/check", methods=["GET"])
     def check_update():
         """Check GitHub for a newer release. Returns latest version or null."""
-        try:
-            ver = pkg_version("piclock3")
-        except Exception:
-            ver = "0.1.0"
+        ver = __version__
         settings = current_app.settings
         repo = settings.get("github_repo", "")
         if not repo:

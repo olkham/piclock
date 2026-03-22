@@ -1,3 +1,4 @@
+import gc
 import time
 import math
 import platform
@@ -57,11 +58,14 @@ class ClockEngine:
         self._TZ_TRANSITION_DURATION = 1.0  # seconds
         # Cached render settings (refreshed periodically, not per-frame)
         self._render_settings_last_load = 0
-        self._cfg_smooth_fps = 15
+        self._cfg_smooth_fps = 30
         self._cfg_animation_fps = 30
         self._cfg_idle_fps = 1
         self._cfg_timezone = "UTC"
+        self._cfg_tz = ZoneInfo("UTC")
         self._cfg_theme = None
+        # Reusable dict avoids per-frame dict allocation
+        self._time_info = {"hour": 0, "minute": 0, "second": 0, "microsecond": 0}
 
     def set_alarm_callback(self, callback):
         """Set a callback that returns overlay draw info when an alarm is active."""
@@ -76,7 +80,7 @@ class ClockEngine:
         """Update the list of alarms for indicator rendering."""
         self._alarms = alarms
 
-    def _maybe_reload_agenda(self, current_day, current_time_str):
+    def _maybe_reload_agenda(self, now):
         """Reload agenda events from JSON every 60 seconds.
 
         Filters out events that don't match today's day-of-week AND
@@ -87,6 +91,8 @@ class ClockEngine:
         if now_ts - self._agenda_last_load < 60:
             return
         self._agenda_last_load = now_ts
+        current_day = now.strftime("%a")
+        current_time_str = now.strftime("%H:%M")
         from src.config.settings import list_agenda_events
         try:
             all_events = list_agenda_events()
@@ -112,6 +118,19 @@ class ClockEngine:
         self._running = True
         next_frame = time.monotonic()
 
+        # Disable automatic GC — we'll collect manually during frame slack
+        # to prevent unpredictable pauses that cause second hand stutter.
+        gc.disable()
+
+        try:
+            self._run_loop(next_frame)
+        finally:
+            gc.enable()
+
+    def _run_loop(self, next_frame):
+        """Inner render loop, separated for clean GC try/finally."""
+        time_info = self._time_info
+
         while self._running:
             # Handle Pygame events
             for event in pygame.event.get():
@@ -128,21 +147,14 @@ class ClockEngine:
             # Reload cached settings periodically (every 2s, not per-frame)
             self._maybe_reload_render_settings()
 
-            # Get current time in configured timezone (cached, no per-frame I/O)
+            # Get current time using cached ZoneInfo (no per-frame try/except)
+            now = datetime.now(self._cfg_tz)
             tz_name = self._cfg_timezone
-            try:
-                tz = ZoneInfo(tz_name)
-            except Exception:
-                tz = ZoneInfo("UTC")
-                tz_name = "UTC"
-            now = datetime.now(tz)
 
-            time_info = {
-                "hour": now.hour,
-                "minute": now.minute,
-                "second": now.second,
-                "microsecond": now.microsecond,
-            }
+            time_info["hour"] = now.hour
+            time_info["minute"] = now.minute
+            time_info["second"] = now.second
+            time_info["microsecond"] = now.microsecond
 
             # Detect timezone change and start transition animation
             if self._last_tz_name is not None and tz_name != self._last_tz_name:
@@ -187,7 +199,7 @@ class ClockEngine:
                 time_info["microsecond"] = 0
 
             # Reload agenda events periodically
-            self._maybe_reload_agenda(now.strftime("%a"), now.strftime("%H:%M"))
+            self._maybe_reload_agenda(now)
 
             # Render frame (with optional alarm overlay + alarm indicators)
             rgb_buf = render_frame(
@@ -215,11 +227,18 @@ class ClockEngine:
             next_frame += frame_interval
             now_mono = time.monotonic()
             sleep_time = next_frame - now_mono
+
+            # Run gen-0 GC during frame slack (>3ms headroom) to prevent
+            # automatic GC pauses during rendering that cause visible stutter.
+            if sleep_time > 0.003:
+                gc.collect(0)
+                sleep_time = next_frame - time.monotonic()
+
             if sleep_time > 0:
                 time.sleep(sleep_time)
             else:
                 # Fell behind — reset to avoid burst of catch-up frames
-                next_frame = now_mono
+                next_frame = time.monotonic()
 
     def _maybe_reload_render_settings(self):
         """Reload FPS and timezone settings from storage every 2 seconds (not per-frame)."""
@@ -228,12 +247,19 @@ class ClockEngine:
             return
         self._render_settings_last_load = now_ts
         try:
-            self._cfg_smooth_fps = int(self._settings.get("render_smooth_fps", 15))
+            self._cfg_smooth_fps = int(self._settings.get("render_smooth_fps", 30))
             self._cfg_animation_fps = int(self._settings.get("render_animation_fps", 30))
             self._cfg_idle_fps = max(1, int(self._settings.get("render_idle_fps", 1)))
         except (ValueError, TypeError):
             pass
-        self._cfg_timezone = self._settings.get("timezone", "UTC") or "UTC"
+        new_tz = self._settings.get("timezone", "UTC") or "UTC"
+        if new_tz != self._cfg_timezone:
+            self._cfg_timezone = new_tz
+            try:
+                self._cfg_tz = ZoneInfo(new_tz)
+            except Exception:
+                self._cfg_timezone = "UTC"
+                self._cfg_tz = ZoneInfo("UTC")
         self._cfg_theme = self._theme_manager.get_active_theme()
 
     def stop(self):

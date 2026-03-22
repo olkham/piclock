@@ -14,7 +14,7 @@
                 <input type="number" x-model.number="render.render_smooth_fps" @change="saveRender()"
                        min="1" max="60" step="1"
                        class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
-                <p class="text-xs text-slate-500 mt-1">FPS when smooth second hand is on (default: 15)</p>
+                <p class="text-xs text-slate-500 mt-1">FPS when smooth second hand is on (default: 30)</p>
             </div>
             <div>
                 <label class="block text-sm text-slate-400 mb-1">Animation FPS</label>
@@ -35,14 +35,15 @@
 
     <!-- Theme Auto-Cycle -->
     <div class="card mb-6">
-        <h2 class="text-lg font-semibold mb-4">Theme Auto-Cycle</h2>
+        <h2 class="text-lg font-semibold mb-4">Auto-Cycle Themes</h2>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
             <div>
-                <label class="block text-sm text-slate-400 mb-1">Enable</label>
-                <div class="flex items-center mt-2">
-                    <input type="checkbox" x-model="cycle.enabled" @change="saveCycle()"
-                           class="w-4 h-4 rounded bg-slate-700 border-slate-600">
-                    <span class="ml-2 text-sm" x-text="cycle.enabled ? 'Active' : 'Disabled'"></span>
+                <div class="flex items-center gap-3 mt-2">
+                    <label class="toggle-switch">
+                        <input type="checkbox" x-model="cycle.enabled" @change="saveCycle()">
+                        <div class="toggle-track"></div>
+                    </label>
+                    <span class="text-sm" x-text="cycle.enabled ? 'On' : 'Off'"></span>
                 </div>
             </div>
             <div>
@@ -52,11 +53,12 @@
                        class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
             </div>
             <div>
-                <label class="block text-sm text-slate-400 mb-1">Randomise</label>
-                <div class="flex items-center mt-2">
-                    <input type="checkbox" x-model="cycle.random" @change="saveCycle()"
-                           class="w-4 h-4 rounded bg-slate-700 border-slate-600">
-                    <span class="ml-2 text-sm" x-text="cycle.random ? 'Random order' : 'Sequential'"></span>
+                <div class="flex items-center gap-3 mt-2">
+                    <label class="toggle-switch">
+                        <input type="checkbox" x-model="cycle.random" @change="saveCycle()">
+                        <div class="toggle-track"></div>
+                    </label>
+                    <span class="text-sm" x-text="cycle.random ? 'Random order' : 'Sequential'"></span>
                 </div>
             </div>
         </div>
