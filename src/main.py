@@ -19,6 +19,8 @@ def main():
     parser.add_argument("--theme", type=str, help="Initial theme name")
     parser.add_argument("--timezone", type=str, help="Timezone (e.g., America/New_York)")
     parser.add_argument("--windowed", action="store_true", help="Run in windowed mode instead of fullscreen")
+    parser.add_argument("--kms", action="store_true",
+                        help="Use KMS/DRM video driver (bypass X11 for tear-free rendering)")
     args = parser.parse_args()
 
     # Initialize settings and theme manager
@@ -36,7 +38,7 @@ def main():
             print(f"Warning: Theme '{args.theme}' not found, using default")
 
     # Initialize display
-    init_display(windowed=args.windowed, settings=settings)
+    init_display(windowed=args.windowed, settings=settings, use_kms=args.kms)
 
     # Create engine
     engine = ClockEngine(theme_manager, settings)
