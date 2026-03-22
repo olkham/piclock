@@ -1,3 +1,3 @@
-"""Single source of truth for the PiClock3 version."""
+"""Single source of truth for the PiClock version."""
 
 __version__ = "0.1.3"

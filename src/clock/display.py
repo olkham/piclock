@@ -71,7 +71,7 @@ def init_display(windowed=False, settings=None, use_kms=False):
         )
 
     if windowed:
-        pygame.display.set_caption("PiClock3")
+        pygame.display.set_caption("PiClock")
     else:
         pygame.mouse.set_visible(False)
 

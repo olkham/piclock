@@ -1,4 +1,4 @@
-# PiClock3
+# PiClock
 
 A beautiful analogue clock face for Raspberry Pi Zero with a Waveshare 4" round HDMI display (720×720). Features smooth anti-aliased vector rendering, customizable themes, a web configuration interface, alarms, and power management.
 
@@ -16,7 +16,7 @@ A beautiful analogue clock face for Raspberry Pi Zero with a Waveshare 4" round 
 
 ```bash
 # Clone the project
-cd piclock3
+cd piclock
 
 # Create virtual environment
 python -m venv venv
@@ -186,7 +186,7 @@ curl -X PUT http://localhost:8080/api/settings \
 ## Project Structure
 
 ```
-piclock3/
+piclock/
 ├── src/
 │   ├── main.py              — Entry point
 │   ├── clock/               — Clock rendering engine

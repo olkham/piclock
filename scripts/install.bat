@@ -1,5 +1,5 @@
 @echo off
-REM PiClock3 Windows Development Setup
+REM PiClock Windows Development Setup
 REM Run from the project root: scripts\install.bat
 
 setlocal
@@ -7,7 +7,7 @@ setlocal
 set "PROJECT_DIR=%~dp0.."
 cd /d "%PROJECT_DIR%"
 
-echo === PiClock3 Windows Setup ===
+echo === PiClock Windows Setup ===
 echo.
 
 REM Check Python is available

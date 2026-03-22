@@ -1,4 +1,4 @@
-"""PiClock3 — Main entry point."""
+"""PiClock — Main entry point."""
 
 import argparse
 import multiprocessing
@@ -37,7 +37,7 @@ def _run_flask_subprocess(host, port):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="PiClock3 — Analogue clock for Pi Zero")
+    parser = argparse.ArgumentParser(description="PiClock — Analogue clock for Pi Zero")
     parser.add_argument("--no-web", action="store_true", help="Disable the web interface")
     parser.add_argument("--port", type=int, default=8080, help="Web interface port (default: 8080)")
     parser.add_argument("--host", default="0.0.0.0", help="Web interface host (default: 0.0.0.0)")

@@ -1,4 +1,4 @@
-## Plan: PiClock3 — Analogue Clock for Pi Zero
+## Plan: PiClock — Analogue Clock for Pi Zero
 
 Build a beautiful analogue clock rendered with **PyCairo** (vector graphics, anti-aliased, gradients, shadows) displayed via **Pygame** on a **Waveshare 4" round HDMI display** (720×720). Python backend with **Flask** for web config UI and REST API. Theme system stored in **SQLite**. Cross-developed on Windows, deployed to Pi Zero.
 
@@ -91,7 +91,7 @@ Build a beautiful analogue clock rendered with **PyCairo** (vector graphics, ant
 
 ### Project Structure
 ```
-piclock3/
+piclock/
 ├── src/
 │   ├── main.py
 │   ├── clock/        (engine, renderer, hands, face, display, effects)
@@ -119,5 +119,5 @@ piclock3/
 3. **Web preview fidelity** — The JavaScript Canvas preview won't be pixel-identical to Cairo output, but close enough for configuration purposes. Static layer is cached in an offscreen canvas; only hands redraw each second.
 4. **Alarm animation performance** — Engine runs at 1fps normally. When an alarm triggers, FPS bumps to 30 for smooth overlay animation. Reverts to 1fps on alarm dismiss.
 5. **Gradient rendering** — Both radial and linear gradients are supported. Linear gradients use a configurable angle. Multi-stop colors are supported (add/remove stops in theme editor).
-6. **Theme portability** — Themes can be exported as JSON files and imported on other PiClock3 instances. The `merge_with_defaults()` system ensures old themes remain compatible when new fields are added.
+6. **Theme portability** — Themes can be exported as JSON files and imported on other PiClock instances. The `merge_with_defaults()` system ensures old themes remain compatible when new fields are added.
 7. **Sound management** — Custom alarm sounds can be uploaded via the web UI. Supported formats: WAV, OGG, MP3. Each alarm can have its own sound file.

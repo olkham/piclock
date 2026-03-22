@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PiClock3 Update Script
+# PiClock Update Script
 # Usage: sudo bash scripts/update.sh
 # Pulls latest code, installs new dependencies, and restarts the service.
 
@@ -15,7 +15,7 @@ else
     SERVICE_USER="$USER"
 fi
 
-echo "=== PiClock3 Updater ==="
+echo "=== PiClock Updater ==="
 echo ""
 echo "Project directory: $PROJECT_DIR"
 echo ""
@@ -43,7 +43,7 @@ fi
 echo ""
 
 # --- Step 3: Restart service ---
-echo "[3/3] Restarting PiClock3 service..."
+echo "[3/3] Restarting PiClock service..."
 if systemctl is-active --quiet piclock; then
     systemctl restart piclock
     echo "  Service restarted."

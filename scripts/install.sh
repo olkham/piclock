@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# PiClock3 Installation Script
+# PiClock Installation Script
 # Run on Raspberry Pi: sudo bash scripts/install.sh
 # Installs dependencies, creates a venv, and sets up a systemd service
-# that runs PiClock3 directly from this project directory.
+# that runs PiClock directly from this project directory.
 #
 # Options:
 #   --kms   Use KMS/DRM mode (bypass X11 for tear-free rendering).
@@ -31,7 +31,7 @@ fi
 SERVICE_HOME=$(eval echo "~$SERVICE_USER")
 SERVICE_UID=$(id -u "$SERVICE_USER")
 
-echo "=== PiClock3 Installer ==="
+echo "=== PiClock Installer ==="
 echo ""
 echo "Project directory: $PROJECT_DIR"
 echo "Service user:      $SERVICE_USER"
@@ -128,7 +128,7 @@ if [ "$USE_KMS" = true ]; then
 
     cat > /etc/systemd/system/piclock.service << EOF
 [Unit]
-Description=PiClock3 Analogue Clock (KMS/DRM)
+Description=PiClock Analogue Clock (KMS/DRM)
 After=multi-user.target
 Wants=multi-user.target
 
@@ -148,7 +148,7 @@ else
     # X11 mode: requires a running desktop session.
     cat > /etc/systemd/system/piclock.service << EOF
 [Unit]
-Description=PiClock3 Analogue Clock
+Description=PiClock Analogue Clock
 After=graphical.target
 Wants=graphical.target
 
@@ -186,7 +186,7 @@ systemctl start piclock.service
 
 echo ""
 echo "=== Installation Complete ==="
-echo "PiClock3 is now running and will start on boot."
+echo "PiClock is now running and will start on boot."
 echo "Web interface: http://$(hostname -I | awk '{print $1}'):8080"
 echo ""
 echo "Useful commands:"

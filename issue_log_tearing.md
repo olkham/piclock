@@ -28,7 +28,7 @@ The `--kms` flag has been added to the app, and `install.sh --kms` generates the
 ### 1. Re-install with KMS/DRM mode
 
 ```bash
-sudo bash ~/piclock3/scripts/install.sh --kms
+sudo bash ~/piclock/scripts/install.sh --kms
 ```
 
 This generates a service that runs with `--kms` and targets `multi-user.target` instead of `graphical.target`. It also adds the user to the `video` and `render` groups for DRM device access.
@@ -83,7 +83,7 @@ If you need the desktop back (e.g., for development):
 
 ```bash
 sudo systemctl set-default graphical.target
-sudo bash ~/piclock3/scripts/install.sh   # without --kms
+sudo bash ~/piclock/scripts/install.sh   # without --kms
 sudo reboot
 ```
 
