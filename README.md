@@ -194,7 +194,7 @@ piclock3/
 │   ├── web/                 — Flask web app + API
 │   ├── alarms/              — Alarm scheduler + audio
 │   ├── power/               — Brightness + power management
-│   └── config/              — Settings (SQLite)
+│   └── config/              — Settings (JSON)
 ├── data/                    — Themes, sounds, uploads
 ├── scripts/install.sh       — Pi installation script
 └── piclock.service          — systemd unit file

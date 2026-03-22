@@ -62,7 +62,7 @@ Features:
   - Smooth animated transition when changing timezone (1s easing, per-hand independent shortest path)
 
 Tech Stack:
-- Python 3.11 — PyCairo vector rendering, Pygame display, Flask web server, SQLite storage
+- Python 3.11 — PyCairo vector rendering, Pygame display, Flask web server, JSON file storage
 - Single-process: Cairo → NumPy → Pygame surface pipeline, Flask runs in daemon thread
 - AlpineJS + Tailwind CSS for web UI, canvas-based live clock preview (cached static layer + requestAnimationFrame)
 

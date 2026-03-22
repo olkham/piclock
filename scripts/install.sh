@@ -1,15 +1,27 @@
 #!/usr/bin/env bash
 # PiClock3 Installation Script
-# Run on Raspberry Pi: sudo bash install.sh
+# Run on Raspberry Pi: sudo bash scripts/install.sh
+# Installs dependencies, creates a venv, and sets up a systemd service
+# that runs PiClock3 directly from this project directory.
 
 set -e
 
-INSTALL_DIR="/opt/piclock3"
-SERVICE_USER="pi"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
+# Determine the real user (not root) when run via sudo
+if [ -n "$SUDO_USER" ]; then
+    SERVICE_USER="$SUDO_USER"
+else
+    SERVICE_USER="$USER"
+fi
+SERVICE_HOME=$(eval echo "~$SERVICE_USER")
+SERVICE_UID=$(id -u "$SERVICE_USER")
+
 echo "=== PiClock3 Installer ==="
+echo ""
+echo "Project directory: $PROJECT_DIR"
+echo "Service user:      $SERVICE_USER"
 echo ""
 
 # Check we're on a Pi (or at least Linux)
@@ -19,10 +31,16 @@ if [ "$(uname)" != "Linux" ]; then
     exit 1
 fi
 
-# Install system dependencies
+# Check for root (needed for apt and systemd)
+if [ "$(id -u)" -ne 0 ]; then
+    echo "Please run with sudo: sudo bash $0"
+    exit 1
+fi
+
+# --- Step 1: System dependencies ---
 echo "[1/5] Installing system dependencies..."
-apt-get update -qq
-apt-get install -y -qq \
+apt-get update
+apt-get install -y \
     python3 \
     python3-venv \
     python3-pip \
@@ -33,45 +51,52 @@ apt-get install -y -qq \
     libsdl2-image-dev \
     libsdl2-mixer-dev \
     libsdl2-ttf-dev \
-    sqlite3 \
-    > /dev/null
+    git
+echo ""
 
-# Copy project files
-echo "[2/5] Installing PiClock3 to ${INSTALL_DIR}..."
-mkdir -p "$INSTALL_DIR"
-cp -r "$PROJECT_DIR"/* "$INSTALL_DIR/"
-chown -R "$SERVICE_USER":"$SERVICE_USER" "$INSTALL_DIR"
+# --- Step 2: Virtual environment ---
+echo "[2/5] Setting up Python virtual environment..."
+sudo -u "$SERVICE_USER" python3 -m venv "$PROJECT_DIR/venv"
+echo "  Upgrading pip..."
+sudo -u "$SERVICE_USER" "$PROJECT_DIR/venv/bin/pip" install --upgrade pip
+echo "  Installing Python packages..."
+sudo -u "$SERVICE_USER" "$PROJECT_DIR/venv/bin/pip" install -r "$PROJECT_DIR/requirements.txt"
+echo ""
 
-# Create virtual environment and install Python packages
-echo "[3/5] Setting up Python virtual environment..."
-sudo -u "$SERVICE_USER" python3 -m venv "$INSTALL_DIR/venv"
-sudo -u "$SERVICE_USER" "$INSTALL_DIR/venv/bin/pip" install --upgrade pip -q
-sudo -u "$SERVICE_USER" "$INSTALL_DIR/venv/bin/pip" install -r "$INSTALL_DIR/requirements.txt" -q
+# --- Step 3: Data directories ---
+echo "[3/5] Creating data directories..."
+sudo -u "$SERVICE_USER" mkdir -p "$PROJECT_DIR/data/themes"
+sudo -u "$SERVICE_USER" mkdir -p "$PROJECT_DIR/data/sounds"
+sudo -u "$SERVICE_USER" mkdir -p "$PROJECT_DIR/data/uploads"
+echo ""
 
-# Create data directories
-echo "[4/5] Creating data directories..."
-sudo -u "$SERVICE_USER" mkdir -p "$INSTALL_DIR/data/themes"
-sudo -u "$SERVICE_USER" mkdir -p "$INSTALL_DIR/data/sounds"
-sudo -u "$SERVICE_USER" mkdir -p "$INSTALL_DIR/data/uploads"
+# --- Step 4: Ensure project ownership ---
+echo "[4/5] Setting file ownership..."
+chown -R "$SERVICE_USER":"$SERVICE_USER" "$PROJECT_DIR"
+echo ""
 
-# Install systemd service
+# --- Step 5: systemd service ---
 echo "[5/5] Installing systemd service..."
 cat > /etc/systemd/system/piclock.service << EOF
 [Unit]
 Description=PiClock3 Analogue Clock
-After=network.target
+After=graphical.target
+Wants=graphical.target
 
 [Service]
 Type=simple
 User=${SERVICE_USER}
-WorkingDirectory=${INSTALL_DIR}
+WorkingDirectory=${PROJECT_DIR}
 Environment=DISPLAY=:0
-ExecStart=${INSTALL_DIR}/venv/bin/python -m src.main
+Environment=XAUTHORITY=${SERVICE_HOME}/.Xauthority
+Environment=XDG_RUNTIME_DIR=/run/user/${SERVICE_UID}
+ExecStartPre=/bin/sleep 3
+ExecStart=${PROJECT_DIR}/venv/bin/python -m src.main
 Restart=always
 RestartSec=5
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=graphical.target
 EOF
 
 systemctl daemon-reload
@@ -88,3 +113,5 @@ echo "  sudo systemctl status piclock    — Check status"
 echo "  sudo systemctl restart piclock   — Restart"
 echo "  sudo systemctl stop piclock      — Stop"
 echo "  sudo journalctl -u piclock -f    — View logs"
+echo ""
+echo "To update later:  sudo bash $PROJECT_DIR/scripts/update.sh"
