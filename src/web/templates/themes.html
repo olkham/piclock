@@ -180,18 +180,29 @@
                             <input type="range" x-model.number="theme.markers.hour_width" min="1" max="8" step="0.5" class="w-full mb-1">
                             <label class="block text-xs text-slate-400 mb-1">Length: <span x-text="theme.markers.hour_length"></span></label>
                             <input type="range" x-model.number="theme.markers.hour_length" min="0.02" max="0.15" step="0.01" class="w-full mb-1">
+                            <label class="block text-xs text-slate-400 mb-1">Outer Radius: <span x-text="theme.markers.hour_marker_radius + '%'"></span></label>
+                            <input type="range" x-model.number="theme.markers.hour_marker_radius" min="50" max="100" step="1" class="w-full mb-1">
                         </div>
                     </template>
                     <template x-if="theme.markers.hour_style === 'dot'">
                         <div>
                             <label class="block text-xs text-slate-400 mb-1">Dot Radius: <span x-text="theme.markers.dot_radius"></span></label>
                             <input type="range" x-model.number="theme.markers.dot_radius" min="2" max="12" step="0.5" class="w-full mb-1">
+                            <label class="block text-xs text-slate-400 mb-1">Outer Radius: <span x-text="theme.markers.hour_marker_radius + '%'"></span></label>
+                            <input type="range" x-model.number="theme.markers.hour_marker_radius" min="50" max="100" step="1" class="w-full mb-1">
                         </div>
                     </template>
                     <template x-if="['roman','arabic','custom'].includes(theme.markers.hour_style)">
                         <div>
                             <label class="block text-xs text-slate-400 mb-1">Font Size (0=auto): <span x-text="theme.markers.font_size"></span></label>
                             <input type="range" x-model.number="theme.markers.font_size" min="0" max="60" step="1" class="w-full mb-1">
+                        </div>
+                    </template>
+
+                    <template x-if="['roman','arabic','custom'].includes(theme.markers.hour_style)">
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Position Radius: <span x-text="theme.markers.hour_radius + '%'"></span></label>
+                            <input type="range" x-model.number="theme.markers.hour_radius" min="50" max="95" step="1" class="w-full mb-1">
                         </div>
                     </template>
 
@@ -218,13 +229,17 @@
                             <label class="block text-xs text-slate-400 mb-1">Width: <span x-text="theme.markers.minute_width"></span></label>
                             <input type="range" x-model.number="theme.markers.minute_width" min="0.5" max="4" step="0.5" class="w-full mb-1">
                             <label class="block text-xs text-slate-400 mb-1">Length: <span x-text="theme.markers.minute_length"></span></label>
-                            <input type="range" x-model.number="theme.markers.minute_length" min="0.01" max="0.06" step="0.005" class="w-full">
+                            <input type="range" x-model.number="theme.markers.minute_length" min="0.01" max="0.06" step="0.005" class="w-full mb-1">
+                            <label class="block text-xs text-slate-400 mb-1">Outer Radius: <span x-text="theme.markers.minute_marker_radius + '%'"></span></label>
+                            <input type="range" x-model.number="theme.markers.minute_marker_radius" min="50" max="100" step="1" class="w-full">
                         </div>
                     </template>
                     <template x-if="theme.markers.minute_style === 'dot'">
                         <div>
                             <label class="block text-xs text-slate-400 mb-1">Dot Radius: <span x-text="theme.markers.minute_dot_radius"></span></label>
-                            <input type="range" x-model.number="theme.markers.minute_dot_radius" min="0.5" max="5" step="0.5" class="w-full">
+                            <input type="range" x-model.number="theme.markers.minute_dot_radius" min="0.5" max="5" step="0.5" class="w-full mb-1">
+                            <label class="block text-xs text-slate-400 mb-1">Outer Radius: <span x-text="theme.markers.minute_marker_radius + '%'"></span></label>
+                            <input type="range" x-model.number="theme.markers.minute_marker_radius" min="50" max="100" step="1" class="w-full">
                         </div>
                     </template>
                     <label class="flex items-center gap-2 mt-2 text-sm">
@@ -316,6 +331,10 @@
                     <label class="flex items-center gap-2 text-sm mb-2">
                         <input type="checkbox" x-model="theme.hands.second.visible"> Show second hand
                     </label>
+                    <label class="flex items-center gap-2 text-sm mb-2">
+                        <input type="checkbox" x-model="theme.hands.second.smooth"> Smooth motion (6 fps)
+                    </label>
+                    <p class="text-xs text-slate-500 mb-2">Disabled automatically on Pi Zero for performance.</p>
                     <label class="block text-xs text-slate-400 mb-1">Color</label>
                     <input type="color" x-model="theme.hands.second.color" class="w-full h-8 rounded mb-2">
                     <label class="block text-xs text-slate-400 mb-1">Start: <span x-text="theme.hands.second.start + '%'"></span></label>
@@ -385,6 +404,9 @@
                     <label class="flex items-center gap-2 text-sm mb-2">
                         <input type="checkbox" x-model="theme.agenda.enabled"> Enable agenda pie chart
                     </label>
+                    <label class="flex items-center gap-2 text-sm mb-2">
+                        <input type="checkbox" x-model="theme.agenda.show_current_event"> Show current event title on clock face
+                    </label>
                     <p class="text-xs text-slate-500 mb-2">Shows today's events as colored slices on the clock face. <a href="/agenda" class="text-blue-400 hover:text-blue-300">Manage events &rarr;</a></p>
                     <label class="block text-xs text-slate-400 mb-1">Inner Radius: <span x-text="theme.agenda.min_radius + '%'"></span></label>
                     <input type="range" x-model.number="theme.agenda.min_radius" min="0" max="95" step="5" class="w-full mb-2">
@@ -439,8 +461,12 @@ function themeEditor() {
             if (!this.theme.markers.minute_style) this.theme.markers.minute_style = 'line';
             if (this.theme.markers.minute_dot_radius == null) this.theme.markers.minute_dot_radius = 2;
             if (this.theme.markers.minute_shadow == null) this.theme.markers.minute_shadow = false;
+            if (this.theme.markers.hour_radius == null) this.theme.markers.hour_radius = 82;
+            if (this.theme.markers.hour_marker_radius == null) this.theme.markers.hour_marker_radius = 95;
+            if (this.theme.markers.minute_marker_radius == null) this.theme.markers.minute_marker_radius = 95;
             if (this.theme.hands.second.counterweight == null) this.theme.hands.second.counterweight = true;
             if (this.theme.hands.second.counterweight_radius == null) this.theme.hands.second.counterweight_radius = 0.04;
+            if (this.theme.hands.second.smooth == null) this.theme.hands.second.smooth = false;
             ['hour','minute','second'].forEach(h => {
                 if (this.theme.hands[h].glow == null) this.theme.hands[h].glow = false;
                 if (!this.theme.hands[h].glow_color) this.theme.hands[h].glow_color = this.theme.hands[h].color || '#ffffff';
@@ -449,7 +475,8 @@ function themeEditor() {
             });
             if (!this.theme.alarm_indicators) this.theme.alarm_indicators = {visible:true, color:'#ffaa00', size:4};
             if (!this.theme.clock_text) this.theme.clock_text = {visible:false, format:'12h', color:'#ffffff', font_size:0, offset_y:25};
-            if (!this.theme.agenda) this.theme.agenda = {enabled:false, min_radius:0, max_radius:80, opacity:35};
+            if (!this.theme.agenda) this.theme.agenda = {enabled:false, min_radius:0, max_radius:80, opacity:35, show_current_event:false};
+            if (this.theme.agenda.show_current_event == null) this.theme.agenda.show_current_event = false;
 
             this.$nextTick(() => {
                 startClockPreview('theme-preview', this.theme);

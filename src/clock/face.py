@@ -186,6 +186,7 @@ def _draw_minute_markers(ctx, center, radius, markers):
     width = markers.get("minute_width", 1.5)
     length = markers.get("minute_length", 0.02)
     shadow = markers.get("minute_shadow", False)
+    outer_pct = markers.get("minute_marker_radius", 95) / 100
 
     ctx.set_line_cap(cairo.LINE_CAP_ROUND)
 
@@ -193,8 +194,8 @@ def _draw_minute_markers(ctx, center, radius, markers):
         if i % 5 == 0:
             continue
         angle = math.radians(i * 6 - 90)
-        inner = radius * (1 - length)
-        outer = radius * 0.95
+        outer = radius * outer_pct
+        inner = outer - radius * length
         x1, y1 = center + inner * math.cos(angle), center + inner * math.sin(angle)
         x2, y2 = center + outer * math.cos(angle), center + outer * math.sin(angle)
 
@@ -217,13 +218,14 @@ def _draw_minute_dots(ctx, center, radius, markers):
     r, g, b = _hex_to_rgb(color)
     dot_r = markers.get("minute_dot_radius", 2.0)
     shadow = markers.get("minute_shadow", False)
+    outer_pct = markers.get("minute_marker_radius", 95) / 100
 
     for i in range(60):
         if i % 5 == 0:
             continue
         angle = math.radians(i * 6 - 90)
-        x = center + radius * 0.93 * math.cos(angle)
-        y = center + radius * 0.93 * math.sin(angle)
+        x = center + radius * outer_pct * math.cos(angle)
+        y = center + radius * outer_pct * math.sin(angle)
 
         if shadow:
             ctx.set_source_rgba(0, 0, 0, 0.3)
@@ -241,13 +243,14 @@ def _draw_line_markers(ctx, center, radius, markers):
     width = markers.get("hour_width", 3.0)
     length = markers.get("hour_length", 0.06)
     shadow = markers.get("hour_shadow", False)
+    outer_pct = markers.get("hour_marker_radius", 95) / 100
 
     ctx.set_line_cap(cairo.LINE_CAP_ROUND)
 
     for i in range(12):
         angle = math.radians(i * 30 - 90)
-        inner = radius * (1 - length)
-        outer = radius * 0.95
+        outer = radius * outer_pct
+        inner = outer - radius * length
         x1, y1 = center + inner * math.cos(angle), center + inner * math.sin(angle)
         x2, y2 = center + outer * math.cos(angle), center + outer * math.sin(angle)
 
@@ -270,11 +273,12 @@ def _draw_dot_markers(ctx, center, radius, markers):
     r, g, b = _hex_to_rgb(color)
     dot_radius = markers.get("dot_radius", 5.0)
     shadow = markers.get("hour_shadow", False)
+    outer_pct = markers.get("hour_marker_radius", 95) / 100
 
     for i in range(12):
         angle = math.radians(i * 30 - 90)
-        x = center + radius * 0.88 * math.cos(angle)
-        y = center + radius * 0.88 * math.sin(angle)
+        x = center + radius * outer_pct * math.cos(angle)
+        y = center + radius * outer_pct * math.sin(angle)
 
         if shadow:
             ctx.set_source_rgba(0, 0, 0, 0.3)
@@ -308,17 +312,18 @@ def _draw_text_markers(ctx, center, radius, markers, labels, font_family, defaul
     r, g, b = _hex_to_rgb(color)
     font_size = markers.get("font_size", 0) or radius * default_size_ratio
     shadow = markers.get("hour_shadow", False)
+    hour_radius_pct = markers.get("hour_radius", 82) / 100
 
     # Check if any label contains emoji — use Pillow for rendering if so
     use_pillow = _HAS_PILLOW and any(_has_emoji(lbl) for lbl in labels if lbl)
 
     if use_pillow:
-        _draw_text_markers_pillow(ctx, center, radius, labels, font_size, r, g, b, shadow)
+        _draw_text_markers_pillow(ctx, center, radius, labels, font_size, r, g, b, shadow, hour_radius_pct)
     else:
-        _draw_text_markers_cairo(ctx, center, radius, labels, font_family, font_size, r, g, b, shadow)
+        _draw_text_markers_cairo(ctx, center, radius, labels, font_family, font_size, r, g, b, shadow, hour_radius_pct)
 
 
-def _draw_text_markers_cairo(ctx, center, radius, labels, font_family, font_size, r, g, b, shadow):
+def _draw_text_markers_cairo(ctx, center, radius, labels, font_family, font_size, r, g, b, shadow, hour_radius_pct):
     """Render text markers using Cairo's toy text API (fast, no emoji)."""
     ctx.select_font_face(font_family, cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
     ctx.set_font_size(font_size)
@@ -327,8 +332,8 @@ def _draw_text_markers_cairo(ctx, center, radius, labels, font_family, font_size
         if not label:
             continue
         angle = math.radians(i * 30 - 90)
-        x = center + radius * 0.82 * math.cos(angle)
-        y = center + radius * 0.82 * math.sin(angle)
+        x = center + radius * hour_radius_pct * math.cos(angle)
+        y = center + radius * hour_radius_pct * math.sin(angle)
         extents = ctx.text_extents(label)
 
         if shadow:
@@ -341,7 +346,7 @@ def _draw_text_markers_cairo(ctx, center, radius, labels, font_family, font_size
         ctx.show_text(label)
 
 
-def _draw_text_markers_pillow(ctx, center, radius, labels, font_size, r, g, b, shadow):
+def _draw_text_markers_pillow(ctx, center, radius, labels, font_size, r, g, b, shadow, hour_radius_pct):
     """Render text markers using Pillow (supports emoji/unicode)."""
     font = _get_emoji_font(font_size)
     color_rgba = (int(r * 255), int(g * 255), int(b * 255), 255)
@@ -350,8 +355,8 @@ def _draw_text_markers_pillow(ctx, center, radius, labels, font_size, r, g, b, s
         if not label:
             continue
         angle = math.radians(i * 30 - 90)
-        x = center + radius * 0.82 * math.cos(angle)
-        y = center + radius * 0.82 * math.sin(angle)
+        x = center + radius * hour_radius_pct * math.cos(angle)
+        y = center + radius * hour_radius_pct * math.sin(angle)
 
         # Measure text
         dummy = Image.new("RGBA", (1, 1))
@@ -479,6 +484,89 @@ def draw_agenda(ctx, size, theme, agenda_events):
         ctx.arc_negative(center, center, min_r, end_angle, start_angle)
         ctx.close_path()
         ctx.fill()
+
+
+def draw_current_event(ctx, size, time_info, theme, agenda_events):
+    """Draw the currently active agenda event title on the clock face."""
+    agenda_cfg = theme.get("agenda", {})
+    if not agenda_cfg.get("show_current_event", False) or not agenda_events:
+        return
+
+    center = size / 2
+    radius = size / 2
+
+    # Find the currently active event
+    current_mins = time_info["hour"] * 60 + time_info["minute"]
+    active_event = None
+    for ev in agenda_events:
+        start_str = ev.get("start_time", "")
+        end_str = ev.get("end_time", "")
+        if not start_str or not end_str:
+            continue
+        try:
+            sp = start_str.split(":")
+            ep = end_str.split(":")
+            start_mins = int(sp[0]) * 60 + int(sp[1])
+            end_mins = int(ep[0]) * 60 + int(ep[1])
+        except (ValueError, IndexError):
+            continue
+        if end_mins <= start_mins:
+            end_mins += 24 * 60
+        if start_mins <= current_mins < end_mins:
+            active_event = ev
+            break
+
+    if not active_event:
+        return
+
+    title = active_event.get("title", "")
+    if not title:
+        return
+
+    color = active_event.get("color", "#4488ff")
+    r, g, b = _hex_to_rgb(color)
+
+    # Position: below clock_text if visible, otherwise below center
+    clock_text_cfg = theme.get("clock_text", {})
+    if clock_text_cfg.get("visible", False):
+        text_offset_y = clock_text_cfg.get("offset_y", 25) / 100 * radius
+        text_font_size = clock_text_cfg.get("font_size", 0)
+        if text_font_size <= 0:
+            text_font_size = radius * 0.12
+        y_pos = center + text_offset_y + text_font_size * 0.8
+    else:
+        y_pos = center + radius * 0.25
+
+    font_size = radius * 0.07
+    ctx.select_font_face(_SANS_FONT, cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+    ctx.set_font_size(font_size)
+
+    # Truncate title if too wide
+    display_title = title
+    extents = ctx.text_extents(display_title)
+    max_width = radius * 1.2
+    while extents.width > max_width and len(display_title) > 3:
+        display_title = display_title[:-2] + "\u2026"
+        extents = ctx.text_extents(display_title)
+
+    x = center - extents.width / 2
+    y = y_pos + extents.height / 2
+
+    # Color dot indicator
+    dot_r = font_size * 0.25
+    ctx.set_source_rgb(r, g, b)
+    ctx.arc(x - dot_r * 2, y - extents.height / 2 + dot_r, dot_r, 0, 2 * math.pi)
+    ctx.fill()
+
+    # Shadow
+    ctx.set_source_rgba(0, 0, 0, 0.4)
+    ctx.move_to(x + 1, y + 1)
+    ctx.show_text(display_title)
+
+    # Text in event color
+    ctx.set_source_rgb(r, g, b)
+    ctx.move_to(x, y)
+    ctx.show_text(display_title)
 
 
 def _hex_to_rgb(hex_color):

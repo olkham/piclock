@@ -63,13 +63,6 @@
                         </template>
                     </select>
                 </div>
-                <div>
-                    <label class="flex items-center gap-2 text-sm">
-                        <input type="checkbox" x-model="smoothHands" @change="toggleSmooth()">
-                        Smooth hand movement (60 fps)
-                    </label>
-                    <p class="text-xs text-slate-500 mt-1">Disabled automatically on Pi Zero for performance.</p>
-                </div>
             </div>
         </div>
 
@@ -117,16 +110,11 @@ function dashboard() {
             { value: 'Etc/GMT-11', label: 'GMT+11: Solomon Islands' },
             { value: 'Etc/GMT-12', label: 'GMT+12: Auckland, Fiji' },
         ],
-        smoothHands: false,
         activeAlarm: null,
 
         async init() {
             await this.loadTheme();
             startClockPreview('clock-preview', this.themeData, this.timezone);
-            // Load smooth_hands setting
-            const sResp = await fetch('/api/settings');
-            const allSettings = await sResp.json();
-            this.smoothHands = allSettings.smooth_hands === 'true';
             // Poll for active alarm
             this.pollAlarm();
             setInterval(() => this.pollAlarm(), 5000);
@@ -151,14 +139,6 @@ function dashboard() {
             this.activeTheme = this.selectedTheme;
             await this.loadTheme();
             startClockPreview('clock-preview', this.themeData, this.timezone);
-        },
-
-        async toggleSmooth() {
-            await fetch('/api/settings', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ smooth_hands: this.smoothHands ? 'true' : 'false' }),
-            });
         },
 
         async pollAlarm() {

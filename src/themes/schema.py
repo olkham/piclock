@@ -22,6 +22,8 @@ THEME_SCHEMA = {
         "hour_length": (int, float),
         "dot_radius": (int, float),
         "font_size": (int, float),
+        "hour_radius": (int, float),  # % of radius for text/dot marker position
+        "hour_marker_radius": (int, float),  # % of radius for outer edge of hour line/dot markers
         "hour_shadow": bool,
         "show_minutes": bool,
         "minute_style": str,     # "line" or "dot"
@@ -29,6 +31,7 @@ THEME_SCHEMA = {
         "minute_width": (int, float),
         "minute_length": (int, float),
         "minute_dot_radius": (int, float),
+        "minute_marker_radius": (int, float),  # % of radius for outer edge of minute markers
         "minute_shadow": bool,
     },
     "hands": {
@@ -72,6 +75,7 @@ THEME_SCHEMA = {
             "image": str,
             "counterweight": bool,
             "counterweight_radius": (int, float),
+            "smooth": bool,
         },
     },
     "center_dot": {
@@ -96,6 +100,7 @@ THEME_SCHEMA = {
         "min_radius": (int, float),  # % of clock radius for inner edge
         "max_radius": (int, float),  # % of clock radius for outer edge
         "opacity": (int, float),     # 0-100, fill opacity
+        "show_current_event": bool,  # show active event title on clock face
     },
 }
 
@@ -122,6 +127,8 @@ DEFAULT_THEME = {
         "hour_length": 0.06,
         "dot_radius": 5.0,
         "font_size": 0,  # 0 = auto-calculate
+        "hour_radius": 82,  # % of radius for text/dot marker position
+        "hour_marker_radius": 95,  # % of radius for outer edge of hour line/dot markers
         "hour_shadow": False,
         "show_minutes": True,
         "minute_style": "line",
@@ -129,6 +136,7 @@ DEFAULT_THEME = {
         "minute_width": 1.5,
         "minute_length": 0.02,
         "minute_dot_radius": 2.0,
+        "minute_marker_radius": 95,  # % of radius for outer edge of minute markers
         "minute_shadow": False,
     },
     "hands": {
@@ -166,6 +174,7 @@ DEFAULT_THEME = {
             "image": "",
             "counterweight": True,
             "counterweight_radius": 0.04,
+            "smooth": False,
         },
     },
     "center_dot": {
@@ -190,6 +199,7 @@ DEFAULT_THEME = {
         "min_radius": 0,
         "max_radius": 80,
         "opacity": 35,
+        "show_current_event": False,
     },
 }
 

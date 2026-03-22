@@ -111,8 +111,8 @@ class ClockEngine:
             # Get active theme
             theme = self._theme_manager.get_active_theme()
 
-            # Determine if smooth second hand is enabled
-            smooth = self._settings.get("smooth_hands", "false") == "true"
+            # Determine if smooth second hand is enabled (per-theme setting)
+            smooth = theme.get("hands", {}).get("second", {}).get("smooth", False)
             if not smooth or self._is_pi_zero:
                 # Snap second hand to integer seconds even during alarm animation
                 time_info["microsecond"] = 0
@@ -131,11 +131,11 @@ class ClockEngine:
             # Show frame
             show_frame(surface)
 
-            # Dynamic FPS: 30fps alarm, 60fps smooth hands, 1fps default
+            # Dynamic FPS: 30fps alarm, 6fps smooth hands, 1fps default
             if self._alarm_active:
                 target_fps = 30
             elif smooth and not self._is_pi_zero:
-                target_fps = 60
+                target_fps = 6
             else:
                 target_fps = 1
             clock.tick(target_fps)

@@ -219,7 +219,8 @@ function drawMarkers(ctx, center, radius, theme) {
 
             if (mStyle === 'dot') {
                 const dotR = (markers.minute_dot_radius || 2) * scale;
-                const dist = radius * 0.92;
+                const mOuterPct = (markers.minute_marker_radius != null ? markers.minute_marker_radius : 95) / 100;
+                const dist = radius * mOuterPct;
                 if (markers.minute_shadow) {
                     ctx.fillStyle = 'rgba(0,0,0,0.3)';
                     ctx.beginPath();
@@ -232,8 +233,9 @@ function drawMarkers(ctx, center, radius, theme) {
                 ctx.fill();
             } else {
                 const mLen = markers.minute_length || 0.02;
-                const inner = radius * (1 - mLen);
-                const outer = radius * 0.95;
+                const mLineOuterPct = (markers.minute_marker_radius != null ? markers.minute_marker_radius : 95) / 100;
+                const outer = radius * mLineOuterPct;
+                const inner = outer - radius * mLen;
                 if (markers.minute_shadow) {
                     ctx.save();
                     ctx.translate(1, 1);
@@ -266,10 +268,11 @@ function drawMarkers(ctx, center, radius, theme) {
 
     if (style === 'line') {
         const hLen = markers.hour_length || 0.06;
+        const hOuterPct = (markers.hour_marker_radius != null ? markers.hour_marker_radius : 95) / 100;
         for (let i = 0; i < 12; i++) {
             const angle = (i * 30 - 90) * Math.PI / 180;
-            const inner = radius * (1 - hLen);
-            const outer = radius * 0.95;
+            const outer = radius * hOuterPct;
+            const inner = outer - radius * hLen;
             if (hasShadow) {
                 ctx.save(); ctx.translate(1, 1);
                 ctx.strokeStyle = 'rgba(0,0,0,0.3)';
@@ -291,9 +294,10 @@ function drawMarkers(ctx, center, radius, theme) {
         }
     } else if (style === 'dot') {
         const dotR = (markers.dot_radius || 5) * scale;
+        const dotDist = radius * ((markers.hour_marker_radius != null ? markers.hour_marker_radius : 95) / 100);
         for (let i = 0; i < 12; i++) {
             const angle = (i * 30 - 90) * Math.PI / 180;
-            const dist = radius * 0.88;
+            const dist = dotDist;
             if (hasShadow) {
                 ctx.fillStyle = 'rgba(0,0,0,0.3)';
                 ctx.beginPath();
@@ -323,10 +327,12 @@ function drawMarkers(ctx, center, radius, theme) {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
+        const hourRadiusPct = (markers.hour_radius != null ? markers.hour_radius : 82) / 100;
+
         for (let i = 0; i < 12; i++) {
             const angle = (i * 30 - 90) * Math.PI / 180;
-            const x = center + radius * 0.82 * Math.cos(angle);
-            const y = center + radius * 0.82 * Math.sin(angle);
+            const x = center + radius * hourRadiusPct * Math.cos(angle);
+            const y = center + radius * hourRadiusPct * Math.sin(angle);
             if (hasShadow) {
                 ctx.fillStyle = 'rgba(0,0,0,0.4)';
                 ctx.fillText(numerals[i], x + 1, y + 1);
@@ -462,6 +468,67 @@ function drawHands(ctx, center, radius, time, theme) {
         ctx.fillStyle = hexToCSS(ct.color || '#ffffff');
         ctx.fillText(text, center, center + offsetY);
     }
+
+    // Current agenda event title
+    drawCurrentEvent(ctx, center, radius, time, theme);
+}
+
+function drawCurrentEvent(ctx, center, radius, time, theme) {
+    const cfg = theme.agenda || {};
+    if (!cfg.show_current_event || !_agendaEvents || _agendaEvents.length === 0) return;
+
+    const currentMins = time.hour * 60 + time.minute;
+    let active = null;
+    for (const ev of _agendaEvents) {
+        const ss = (ev.start_time || '').split(':');
+        const es = (ev.end_time || '').split(':');
+        if (ss.length < 2 || es.length < 2) continue;
+        let startMins = parseInt(ss[0], 10) * 60 + parseInt(ss[1], 10);
+        let endMins = parseInt(es[0], 10) * 60 + parseInt(es[1], 10);
+        if (endMins <= startMins) endMins += 24 * 60;
+        if (startMins <= currentMins && currentMins < endMins) {
+            active = ev;
+            break;
+        }
+    }
+    if (!active || !active.title) return;
+
+    const color = hexToCSS(active.color || '#4488ff');
+    const ct = theme.clock_text || {};
+    let yPos;
+    if (ct.visible) {
+        const textOffsetY = (ct.offset_y != null ? ct.offset_y : 25) / 100 * radius;
+        const textFs = (ct.font_size && ct.font_size > 0) ? ct.font_size * (radius / 360) : radius * 0.12;
+        yPos = center + textOffsetY + textFs * 0.8;
+    } else {
+        yPos = center + radius * 0.25;
+    }
+
+    const fs = radius * 0.07;
+    ctx.font = `${fs}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    let display = active.title;
+    const maxW = radius * 1.2;
+    while (ctx.measureText(display).width > maxW && display.length > 3) {
+        display = display.slice(0, -2) + '\u2026';
+    }
+
+    // Dot indicator
+    const dotR = fs * 0.25;
+    const textW = ctx.measureText(display).width;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(center - textW / 2 - dotR * 2, yPos, dotR, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.fillText(display, center + 1, yPos + 1);
+    // Text
+    ctx.fillStyle = color;
+    ctx.fillText(display, center, yPos);
 }
 
 function drawHand(ctx, center, radius, angleDeg, end, width, color, start, style, shadow, glow, glowColor) {

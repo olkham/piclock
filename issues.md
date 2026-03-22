@@ -1,7 +1,9 @@
-- move the smooth motion option to the second hand settings, we also don't need 60fps. 6fps is probably enough for the second hand for smooth motion
+- increase the smooth second hand motion to 15fps
 
-- add option to enable 'Show current agenda' which will show the agenda title on the clock face under the text if that's enabled. This will be useful for people who want to use the clock as a sort of 'smart display' that shows the next event on the clock face. If the event has a color, we can use that color for the text or maybe a small dot indicator on the clock face. If the Clock Text is disabled, we can show the agenda title at a configurable offset below the center of the clock face. 
+- Show the current agenda item text as "Now: {event title}"
 
-- let the user set the radius percentage of the hour text offset, this will allow them to position the text further below the center if they have a lot of events in their agenda and want to avoid overlap.
+- let the users set the min and max radius percentage of the hour and minute markers, we currently set the length and outer radius. The length of the markers should be defined by the inner and outer radius percentage, so that users can create styles with very long or short markers, or even have the hour markers be longer than the minute markers. This also allows for more creative freedom in marker placement, such as having the hour markers be closer to the center than the minute markers.
 
-- let the users set the min max radius percentage of the hour and minute markers, this will allow them to create a sort of 'donut' clock face with a gap between the edge and the markers
+- separate the hour marker and the hour text into two different layers, so that users can have the hour text be closer to the center than the hour markers, or even have the hour text be outside of the hour markers. This also allows for more creative freedom in marker placement, such as having the hour text be closer to the center than the minute markers, while the hour markers are further out.
+
+- when changing the time zone, the clock should smoothly transition to the new time instead of jumping, this can be done by calculating the time difference and animating the hands to the new position over a short duration (e.g., 1 second) using an easing function for a smooth effect.

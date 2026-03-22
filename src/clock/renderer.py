@@ -32,7 +32,7 @@ def render_frame(time_info, theme, overlay_fn=None, alarms=None, agenda_events=N
     Returns:
         A Pygame surface with the rendered clock.
     """
-    from src.clock.face import draw_background, draw_markers, draw_alarm_indicators, draw_clock_text, draw_agenda
+    from src.clock.face import draw_background, draw_markers, draw_alarm_indicators, draw_clock_text, draw_agenda, draw_current_event
     from src.clock.hands import draw_hands
     from src.clock.effects import apply_circular_mask
 
@@ -59,6 +59,10 @@ def render_frame(time_info, theme, overlay_fn=None, alarms=None, agenda_events=N
 
     # Draw clock text overlay
     draw_clock_text(ctx, size, time_info, theme)
+
+    # Draw current agenda event title
+    if agenda_events:
+        draw_current_event(ctx, size, time_info, theme, agenda_events)
 
     # Draw overlay (e.g., alarm visual)
     if overlay_fn:
