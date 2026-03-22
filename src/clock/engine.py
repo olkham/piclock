@@ -76,8 +76,13 @@ class ClockEngine:
         """Update the list of alarms for indicator rendering."""
         self._alarms = alarms
 
-    def _maybe_reload_agenda(self, current_day):
-        """Reload agenda events from JSON every 60 seconds."""
+    def _maybe_reload_agenda(self, current_day, current_time_str):
+        """Reload agenda events from JSON every 60 seconds.
+
+        Filters out events that don't match today's day-of-week AND
+        events whose end_time has already passed today (e.g. a 06:45-07:15
+        event should not appear at 16:13).
+        """
         now_ts = time.time()
         if now_ts - self._agenda_last_load < 60:
             return
@@ -87,7 +92,7 @@ class ClockEngine:
             all_events = list_agenda_events()
         except Exception:
             all_events = []
-        # Filter to events active today
+        # Filter to events active right now
         filtered = []
         for ev in all_events:
             days = ev.get("days", "")
@@ -95,13 +100,17 @@ class ClockEngine:
                 day_list = [d.strip() for d in days.split(",") if d.strip()]
                 if current_day not in day_list:
                     continue
+            # Hide events whose end time has already passed today
+            end_time = ev.get("end_time", "")
+            if end_time and current_time_str > end_time:
+                continue
             filtered.append(ev)
         self._agenda_events = filtered
 
     def run(self):
         """Run the clock loop. Blocks until stop() is called or window is closed."""
         self._running = True
-        clock = pygame.time.Clock()
+        next_frame = time.monotonic()
 
         while self._running:
             # Handle Pygame events
@@ -178,7 +187,7 @@ class ClockEngine:
                 time_info["microsecond"] = 0
 
             # Reload agenda events periodically
-            self._maybe_reload_agenda(now.strftime("%a"))
+            self._maybe_reload_agenda(now.strftime("%a"), now.strftime("%H:%M"))
 
             # Render frame (with optional alarm overlay + alarm indicators)
             rgb_buf = render_frame(
@@ -199,7 +208,18 @@ class ClockEngine:
                 target_fps = self._cfg_smooth_fps
             else:
                 target_fps = self._cfg_idle_fps
-            clock.tick(target_fps)
+
+            # Monotonic frame pacing — avoids pygame.time.Clock jitter that
+            # causes the smooth second hand to stutter visibly.
+            frame_interval = 1.0 / target_fps
+            next_frame += frame_interval
+            now_mono = time.monotonic()
+            sleep_time = next_frame - now_mono
+            if sleep_time > 0:
+                time.sleep(sleep_time)
+            else:
+                # Fell behind — reset to avoid burst of catch-up frames
+                next_frame = now_mono
 
     def _maybe_reload_render_settings(self):
         """Reload FPS and timezone settings from storage every 2 seconds (not per-frame)."""

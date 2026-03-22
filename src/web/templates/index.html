@@ -71,44 +71,6 @@
             <h2 class="text-lg font-semibold mb-4">Preview</h2>
             <canvas id="clock-preview" width="360" height="360"></canvas>
         </div>
-
-        <!-- Render Settings Card -->
-        <div class="card md:col-span-2">
-            <h2 class="text-lg font-semibold mb-4">Render Settings</h2>
-            <p class="text-xs text-slate-500 mb-4">Tune rendering options to experiment with performance and tearing. Changes take effect on the next frame.</p>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div>
-                    <label class="block text-sm text-slate-400 mb-1">Smooth Second FPS</label>
-                    <input type="number" x-model.number="renderSettings.render_smooth_fps" @change="saveRenderSettings()"
-                           min="1" max="60" step="1"
-                           class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
-                    <p class="text-xs text-slate-500 mt-1">FPS when smooth second hand is on (default: 15)</p>
-                </div>
-                <div>
-                    <label class="block text-sm text-slate-400 mb-1">Animation FPS</label>
-                    <input type="number" x-model.number="renderSettings.render_animation_fps" @change="saveRenderSettings()"
-                           min="1" max="60" step="1"
-                           class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
-                    <p class="text-xs text-slate-500 mt-1">FPS for alarms &amp; transitions (default: 30)</p>
-                </div>
-                <div>
-                    <label class="block text-sm text-slate-400 mb-1">Idle FPS</label>
-                    <input type="number" x-model.number="renderSettings.render_idle_fps" @change="saveRenderSettings()"
-                           min="1" max="10" step="1"
-                           class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
-                    <p class="text-xs text-slate-500 mt-1">FPS when only clock ticks (default: 1)</p>
-                </div>
-                <div>
-                    <label class="block text-sm text-slate-400 mb-1">Bypass Compositor</label>
-                    <div class="flex items-center mt-2">
-                        <input type="checkbox" x-model="renderSettings.render_bypass_compositor" @change="saveRenderSettings()"
-                               class="w-4 h-4 rounded bg-slate-700 border-slate-600">
-                        <span class="ml-2 text-sm" x-text="renderSettings.render_bypass_compositor ? 'Bypassed' : 'Using compositor'"></span>
-                    </div>
-                    <p class="text-xs text-slate-500 mt-1">Disable compositor vsync (requires restart)</p>
-                </div>
-            </div>
-        </div>
     </div>
 </div>
 
@@ -149,12 +111,6 @@ function dashboard() {
             { value: 'Etc/GMT-12', label: 'GMT+12: Auckland, Fiji' },
         ],
         activeAlarm: null,
-        renderSettings: {
-            render_smooth_fps: {{ render_smooth_fps }},
-            render_animation_fps: {{ render_animation_fps }},
-            render_idle_fps: {{ render_idle_fps }},
-            render_bypass_compositor: {{ 'true' if render_bypass_compositor else 'false' }},
-        },
 
         async init() {
             await this.loadTheme();
@@ -207,13 +163,6 @@ function dashboard() {
             this.activeAlarm = null;
         },
 
-        async saveRenderSettings() {
-            await fetch('/api/settings', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(this.renderSettings),
-            });
-        },
     };
 }
 </script>

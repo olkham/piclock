@@ -5,16 +5,16 @@
     <h1 class="text-2xl font-bold mb-6">Alarms</h1>
 
     <div class="card mb-6">
-        <h2 class="text-lg font-semibold mb-4">Add Alarm</h2>
+        <h2 class="text-lg font-semibold mb-4" x-text="editingAlarm ? 'Edit Alarm' : 'Add Alarm'"></h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
                 <label class="block text-xs text-slate-400 mb-1">Time</label>
-                <input type="time" x-model="newAlarm.time"
+                <input type="time" x-model="form.time"
                        class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
             </div>
             <div>
                 <label class="block text-xs text-slate-400 mb-1">Label</label>
-                <input type="text" x-model="newAlarm.label" placeholder="Optional label"
+                <input type="text" x-model="form.label" placeholder="Optional label"
                        class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
             </div>
             <div>
@@ -22,7 +22,7 @@
                 <div class="flex gap-1 flex-wrap">
                     <template x-for="day in ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']" :key="day">
                         <button @click="toggleDay(day)"
-                                :class="newAlarm.days.includes(day) ? 'bg-blue-600' : 'bg-slate-600'"
+                                :class="form.days.includes(day) ? 'bg-blue-600' : 'bg-slate-600'"
                                 class="text-xs px-2 py-1 rounded" x-text="day">
                         </button>
                     </template>
@@ -30,7 +30,7 @@
             </div>
             <div>
                 <label class="block text-xs text-slate-400 mb-1">Sound</label>
-                <select x-model="newAlarm.sound" class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
+                <select x-model="form.sound" class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
                     <option value="">Default</option>
                     <template x-for="s in sounds" :key="s">
                         <option :value="s" x-text="s"></option>
@@ -39,7 +39,7 @@
             </div>
             <div>
                 <label class="block text-xs text-slate-400 mb-1">Animation Shape</label>
-                <select x-model="newAlarm.animation_shape" class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
+                <select x-model="form.animation_shape" class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
                     <option value="border_glow">Border Glow</option>
                     <option value="ring">Ring</option>
                     <option value="flash">Flash</option>
@@ -47,30 +47,34 @@
             </div>
             <div>
                 <label class="block text-xs text-slate-400 mb-1">Animation Color</label>
-                <input type="color" x-model="newAlarm.animation_color" class="w-full h-9 rounded">
+                <input type="color" x-model="form.animation_color" class="w-full h-9 rounded">
             </div>
             <div>
                 <label class="block text-xs text-slate-400 mb-1">Animation Speed</label>
-                <select x-model="newAlarm.animation_speed" class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
+                <select x-model="form.animation_speed" class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
                     <option value="slow">Slow</option>
                     <option value="normal">Normal</option>
                     <option value="fast">Fast</option>
                 </select>
             </div>
             <div>
-                <label class="block text-xs text-slate-400 mb-1">Duration: <span x-text="newAlarm.animation_duration + 's'"></span></label>
-                <input type="range" x-model.number="newAlarm.animation_duration" min="10" max="300" step="10"
+                <label class="block text-xs text-slate-400 mb-1">Duration: <span x-text="form.animation_duration + 's'"></span></label>
+                <input type="range" x-model.number="form.animation_duration" min="10" max="300" step="10"
                        class="w-full bg-slate-700 rounded py-2">
             </div>
             <div class="flex items-end">
                 <label class="flex items-center gap-2 text-sm">
-                    <input type="checkbox" x-model="newAlarm.sound_enabled"> Enable sound
+                    <input type="checkbox" x-model="form.sound_enabled"> Enable sound
                 </label>
             </div>
-            <div class="flex items-end">
-                <button @click="addAlarm()"
-                        class="w-full bg-green-600 hover:bg-green-700 text-white text-sm px-4 py-2 rounded">
-                    Add Alarm
+            <div class="flex items-end gap-2">
+                <button @click="saveAlarm()"
+                        class="flex-1 bg-green-600 hover:bg-green-700 text-white text-sm px-4 py-2 rounded"
+                        x-text="editingAlarm ? 'Update Alarm' : 'Add Alarm'">
+                </button>
+                <button x-show="editingAlarm" @click="cancelEdit()"
+                        class="bg-slate-600 hover:bg-slate-500 text-white text-sm px-4 py-2 rounded">
+                    Cancel
                 </button>
             </div>
         </div>
@@ -117,7 +121,9 @@
                                             after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all
                                             peer-checked:after:translate-x-full"></div>
                             </label>
-                            <button @click="removeAlarm(alarm.id)"
+                            <button @click="editAlarm(alarm)"
+                                    class="text-blue-400 hover:text-blue-300 text-sm">&#9998;</button>
+                            <button @click="confirmDelete(alarm.id)"
                                     class="text-red-400 hover:text-red-300 text-sm">&#10005;</button>
                         </div>
                     </div>
@@ -135,6 +141,17 @@
             </template>
         </div>
     </div>
+
+    <!-- Delete confirmation modal -->
+    <div x-show="deleteId !== null" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" x-cloak>
+        <div class="bg-slate-800 rounded-lg p-6 max-w-sm mx-4">
+            <p class="text-sm mb-4">Are you sure you want to delete this alarm?</p>
+            <div class="flex gap-3 justify-end">
+                <button @click="deleteId = null" class="bg-slate-600 hover:bg-slate-500 text-sm px-4 py-2 rounded">Cancel</button>
+                <button @click="removeAlarm()" class="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-2 rounded">Delete</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -142,10 +159,20 @@ function alarmManager() {
     return {
         alarms: [],
         sounds: [],
-        newAlarm: {
+        editingAlarm: null,
+        deleteId: null,
+        form: {
             time: '', label: '', days: [], sound: '',
             animation_shape: 'border_glow', animation_color: '#ff3333', animation_speed: 'normal',
             sound_enabled: true, animation_duration: 60
+        },
+
+        _emptyForm() {
+            return {
+                time: '', label: '', days: [], sound: '',
+                animation_shape: 'border_glow', animation_color: '#ff3333', animation_speed: 'normal',
+                sound_enabled: true, animation_duration: 60
+            };
         },
 
         async load() {
@@ -158,33 +185,59 @@ function alarmManager() {
         },
 
         toggleDay(day) {
-            const idx = this.newAlarm.days.indexOf(day);
-            if (idx >= 0) this.newAlarm.days.splice(idx, 1);
-            else this.newAlarm.days.push(day);
+            const idx = this.form.days.indexOf(day);
+            if (idx >= 0) this.form.days.splice(idx, 1);
+            else this.form.days.push(day);
         },
 
-        async addAlarm() {
-            if (!this.newAlarm.time) return;
-            await fetch('/api/alarms', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    time: this.newAlarm.time,
-                    label: this.newAlarm.label,
-                    days: this.newAlarm.days.join(','),
-                    sound: this.newAlarm.sound,
-                    animation_shape: this.newAlarm.animation_shape,
-                    animation_color: this.newAlarm.animation_color,
-                    animation_speed: this.newAlarm.animation_speed,
-                    sound_enabled: this.newAlarm.sound_enabled,
-                    animation_duration: this.newAlarm.animation_duration,
-                }),
-            });
-            this.newAlarm = {
-                time: '', label: '', days: [], sound: '',
-                animation_shape: 'border_glow', animation_color: '#ff3333', animation_speed: 'normal',
-                sound_enabled: true, animation_duration: 60
+        editAlarm(alarm) {
+            this.editingAlarm = alarm.id;
+            this.form = {
+                time: alarm.time,
+                label: alarm.label || '',
+                days: alarm.days ? alarm.days.split(',').map(d => d.trim()).filter(Boolean) : [],
+                sound: alarm.sound || '',
+                animation_shape: alarm.animation_shape || 'border_glow',
+                animation_color: alarm.animation_color || '#ff3333',
+                animation_speed: alarm.animation_speed || 'normal',
+                sound_enabled: alarm.sound_enabled !== false,
+                animation_duration: alarm.animation_duration || 60,
             };
+        },
+
+        cancelEdit() {
+            this.editingAlarm = null;
+            this.form = this._emptyForm();
+        },
+
+        async saveAlarm() {
+            if (!this.form.time) return;
+            const payload = {
+                time: this.form.time,
+                label: this.form.label,
+                days: this.form.days.join(','),
+                sound: this.form.sound,
+                animation_shape: this.form.animation_shape,
+                animation_color: this.form.animation_color,
+                animation_speed: this.form.animation_speed,
+                sound_enabled: this.form.sound_enabled,
+                animation_duration: this.form.animation_duration,
+            };
+            if (this.editingAlarm) {
+                await fetch(`/api/alarms/${this.editingAlarm}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+            } else {
+                await fetch('/api/alarms', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+            }
+            this.editingAlarm = null;
+            this.form = this._emptyForm();
             await this.load();
         },
 
@@ -197,8 +250,12 @@ function alarmManager() {
             });
         },
 
-        async removeAlarm(id) {
-            await fetch(`/api/alarms/${id}`, { method: 'DELETE' });
+        confirmDelete(id) { this.deleteId = id; },
+
+        async removeAlarm() {
+            if (this.deleteId === null) return;
+            await fetch(`/api/alarms/${this.deleteId}`, { method: 'DELETE' });
+            this.deleteId = null;
             await this.load();
         },
 

@@ -2,8 +2,13 @@
 
 import json
 import os
+import random
 import re
+import subprocess
+import threading
+import urllib.request
 from datetime import datetime, timezone, timedelta
+from importlib.metadata import version as pkg_version
 from zoneinfo import available_timezones, ZoneInfo
 
 from flask import Blueprint, Response, current_app, jsonify, request, send_from_directory
@@ -360,6 +365,121 @@ def create_api_blueprint():
     def delete_agenda_event(event_id):
         from src.config.settings import delete_agenda_event as _delete_event
         _delete_event(event_id)
+        return jsonify({"status": "ok"})
+
+    # --- System (reboot / shutdown) ---
+
+    @bp.route("/reboot", methods=["POST"])
+    def reboot():
+        subprocess.Popen(["sudo", "reboot"])
+        return jsonify({"status": "rebooting"})
+
+    @bp.route("/shutdown", methods=["POST"])
+    def shutdown():
+        subprocess.Popen(["sudo", "poweroff"])
+        return jsonify({"status": "shutting_down"})
+
+    # --- Version & Updates ---
+
+    @bp.route("/version", methods=["GET"])
+    def get_version():
+        try:
+            ver = pkg_version("piclock3")
+        except Exception:
+            ver = "0.1.0"
+        return jsonify({"version": ver})
+
+    @bp.route("/update/check", methods=["GET"])
+    def check_update():
+        """Check GitHub for a newer release. Returns latest version or null."""
+        try:
+            ver = pkg_version("piclock3")
+        except Exception:
+            ver = "0.1.0"
+        settings = current_app.settings
+        repo = settings.get("github_repo", "")
+        if not repo:
+            return jsonify({"current": ver, "latest": None, "update_available": False})
+        url = f"https://api.github.com/repos/{repo}/releases/latest"
+        req = urllib.request.Request(url, headers={"Accept": "application/vnd.github.v3+json"})
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read())
+            latest = data.get("tag_name", "").lstrip("v")
+            return jsonify({
+                "current": ver,
+                "latest": latest,
+                "update_available": latest and latest != ver,
+                "html_url": data.get("html_url", ""),
+            })
+        except Exception:
+            return jsonify({"current": ver, "latest": None, "update_available": False})
+
+    # --- Theme auto-cycle ---
+
+    _cycle_timer = None
+
+    def _start_theme_cycle():
+        """Start or restart the theme auto-cycle timer based on settings."""
+        nonlocal _cycle_timer
+        if _cycle_timer is not None:
+            _cycle_timer.cancel()
+            _cycle_timer = None
+        app = current_app._get_current_object()
+        settings = app.settings
+        tm = app.theme_manager
+        enabled = settings.get("theme_cycle_enabled", False)
+        if not enabled:
+            return
+        interval = max(60, int(settings.get("theme_cycle_interval", 3600)))
+        randomize = settings.get("theme_cycle_random", False)
+
+        def _cycle():
+            nonlocal _cycle_timer
+            with app.app_context():
+                themes = tm.list_themes()
+                if len(themes) < 2:
+                    return
+                current = settings.get("active_theme", "Classic")
+                if randomize:
+                    choices = [t for t in themes if t != current]
+                    next_theme = random.choice(choices) if choices else current
+                else:
+                    try:
+                        idx = themes.index(current)
+                    except ValueError:
+                        idx = -1
+                    next_theme = themes[(idx + 1) % len(themes)]
+                tm.set_active(next_theme)
+                settings.set("active_theme", next_theme)
+                _start_theme_cycle()
+
+        _cycle_timer = threading.Timer(interval, _cycle)
+        _cycle_timer.daemon = True
+        _cycle_timer.start()
+
+    @bp.route("/theme-cycle", methods=["GET"])
+    def get_theme_cycle():
+        settings = current_app.settings
+        return jsonify({
+            "enabled": bool(settings.get("theme_cycle_enabled", False)),
+            "interval": int(settings.get("theme_cycle_interval", 3600)),
+            "random": bool(settings.get("theme_cycle_random", False)),
+        })
+
+    @bp.route("/theme-cycle", methods=["PUT"])
+    def set_theme_cycle():
+        settings = current_app.settings
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "Invalid JSON body"}), 400
+        if "enabled" in data:
+            settings.set("theme_cycle_enabled", bool(data["enabled"]))
+        if "interval" in data:
+            settings.set("theme_cycle_interval", max(60, int(data["interval"])))
+        if "random" in data:
+            settings.set("theme_cycle_random", bool(data["random"]))
+        _start_theme_cycle()
         return jsonify({"status": "ok"})
 
     return bp

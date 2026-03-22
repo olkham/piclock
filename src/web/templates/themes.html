@@ -58,7 +58,7 @@
                             class="bg-purple-600 hover:bg-purple-700 text-white text-sm px-3 py-1 rounded">
                         Save As New
                     </button>
-                    <button @click="deleteTheme()"
+                    <button @click="showDeleteConfirm = true"
                             class="bg-red-600 hover:bg-red-700 text-white text-sm px-3 py-1 rounded">
                         Delete
                     </button>
@@ -456,6 +456,17 @@
             </div>
         </div>
     </div><!-- end flex row -->
+
+    <!-- Theme delete confirmation modal -->
+    <div x-show="showDeleteConfirm" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" x-cloak>
+        <div class="bg-slate-800 rounded-lg p-6 max-w-sm mx-4">
+            <p class="text-sm mb-4">Are you sure you want to delete the theme "<span x-text="editing"></span>"?</p>
+            <div class="flex gap-3 justify-end">
+                <button @click="showDeleteConfirm = false" class="bg-slate-600 hover:bg-slate-500 text-sm px-4 py-2 rounded">Cancel</button>
+                <button @click="deleteTheme(); showDeleteConfirm = false" class="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-2 rounded">Delete</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script src="{{ url_for('static', filename='js/clock-preview.js') }}"></script>
@@ -467,6 +478,7 @@ function themeEditor() {
         editing: null,
         theme: null,
         newName: '',
+        showDeleteConfirm: false,
 
         async init() {
             if (this.themes.length > 0) {
@@ -583,7 +595,6 @@ function themeEditor() {
         },
 
         async deleteTheme() {
-            if (!confirm(`Delete theme "${this.editing}"?`)) return;
             const resp = await fetch(`/api/themes/${this.editing}`, { method: 'DELETE' });
             if (resp.ok) {
                 this.themes = this.themes.filter(t => t !== this.editing);
@@ -686,4 +697,5 @@ function themeEditor() {
     };
 }
 </script>
+
 {% endblock %}

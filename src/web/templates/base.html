@@ -20,6 +20,7 @@
                 <a href="/themes" class="text-slate-300 hover:text-white">Themes</a>
                 <a href="/alarms" class="text-slate-300 hover:text-white">Alarms</a>
                 <a href="/agenda" class="text-slate-300 hover:text-white">Agenda</a>
+                <a href="/settings" class="text-slate-300 hover:text-white">Settings</a>
                 <a href="/clock" class="text-slate-300 hover:text-white">Clock</a>
             </div>
         </div>
@@ -27,5 +28,9 @@
     <main class="{% block main_class %}max-w-5xl{% endblock %} mx-auto px-6 py-8">
         {% block content %}{% endblock %}
     </main>
+    <footer class="text-center text-xs text-slate-600 py-4" x-data="{ version: '' }" x-init="fetch('/api/version').then(r=>r.json()).then(d=>version=d.version)">
+        PiClock3 <span x-text="version ? 'v' + version : ''"></span>
+    </footer>
+    {% block scripts %}{% endblock %}
 </body>
 </html>
