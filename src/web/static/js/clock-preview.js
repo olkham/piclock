@@ -10,11 +10,53 @@ let _cachedThemeJSON = '';  // serialised theme for cache invalidation
 let _previewTimezone = null; // IANA timezone string (e.g. "America/New_York")
 let _bgImageCache = {};    // cache loaded background images by URL
 let _agendaEvents = [];    // cached agenda events for pie chart
+let _tzTransitionStart = 0;     // performance.now() when tz transition began
+let _tzTransitionOffset = 0;    // seconds offset (old - new) to animate away
+const _TZ_TRANSITION_DURATION = 1000; // ms
+
+function _easeInOut(t) {
+    return 0.5 - 0.5 * Math.cos(Math.PI * t);
+}
+
+function _timeToSeconds(h, m, s, ms) {
+    return h * 3600 + m * 60 + s + (ms || 0) / 1000;
+}
+
+function _secondsToDate(totalSecs) {
+    totalSecs = ((totalSecs % 86400) + 86400) % 86400;
+    const h = Math.floor(totalSecs / 3600);
+    const rem = totalSecs - h * 3600;
+    const min = Math.floor(rem / 60);
+    const secFrac = rem - min * 60;
+    const s = Math.floor(secFrac);
+    const ms = Math.round((secFrac - s) * 1000);
+    const d = new Date();
+    d.setHours(h, min, s, ms);
+    return d;
+}
 
 function startClockPreview(canvasId, theme, timezone) {
     if (_previewRAF) cancelAnimationFrame(_previewRAF);
     _staticCache = null;
     _cachedThemeJSON = '';
+
+    // Detect timezone change and start transition
+    if (_previewTimezone != null && timezone != null && timezone !== _previewTimezone) {
+        try {
+            const now = new Date();
+            const oldParts = _tzParts(now, _previewTimezone);
+            const newParts = _tzParts(now, timezone);
+            const oldSecs = _timeToSeconds(oldParts.hour, oldParts.minute, oldParts.second);
+            const newSecs = _timeToSeconds(newParts.hour, newParts.minute, newParts.second);
+            let offset = oldSecs - newSecs;
+            if (offset > 43200) offset -= 86400;
+            else if (offset < -43200) offset += 86400;
+            _tzTransitionOffset = offset;
+            _tzTransitionStart = performance.now();
+        } catch (e) {
+            _tzTransitionOffset = 0;
+        }
+    }
     _previewTimezone = timezone || null;
 
     const canvas = document.getElementById(canvasId);
@@ -30,7 +72,9 @@ function startClockPreview(canvasId, theme, timezone) {
     let lastSec = -1;
     function tick() {
         const now = _getPreviewTime();
-        if (now.getSeconds() !== lastSec) {
+        const transitioning = _tzTransitionOffset !== 0 &&
+            (performance.now() - _tzTransitionStart < _TZ_TRANSITION_DURATION);
+        if (transitioning || now.getSeconds() !== lastSec) {
             lastSec = now.getSeconds();
             renderClock(canvas, theme, now);
         }
@@ -39,25 +83,42 @@ function startClockPreview(canvasId, theme, timezone) {
     tick();
 }
 
-function _getPreviewTime() {
-    if (_previewTimezone) {
-        // Format time parts in the configured timezone
-        const now = new Date();
-        const parts = {};
-        for (const part of ['hour', 'minute', 'second']) {
-            const fmt = new Intl.DateTimeFormat('en-US', {
-                timeZone: _previewTimezone,
-                [part]: 'numeric',
-                hour12: false,
-            });
-            parts[part] = parseInt(fmt.format(now), 10);
-        }
-        // Build a Date-like object that matches the configured timezone
-        const d = new Date(now);
-        d.setHours(parts.hour, parts.minute, parts.second);
-        return d;
+function _tzParts(date, tz) {
+    const parts = {};
+    for (const part of ['hour', 'minute', 'second']) {
+        const fmt = new Intl.DateTimeFormat('en-US', {
+            timeZone: tz, [part]: 'numeric', hour12: false,
+        });
+        parts[part] = parseInt(fmt.format(date), 10);
     }
-    return new Date();
+    return parts;
+}
+
+function _getPreviewTime() {
+    let now;
+    if (_previewTimezone) {
+        const d = new Date();
+        const parts = _tzParts(d, _previewTimezone);
+        now = new Date(d);
+        now.setHours(parts.hour, parts.minute, parts.second);
+    } else {
+        now = new Date();
+    }
+
+    // Apply timezone transition animation
+    if (_tzTransitionOffset !== 0) {
+        const elapsed = performance.now() - _tzTransitionStart;
+        if (elapsed < _TZ_TRANSITION_DURATION) {
+            const progress = _easeInOut(elapsed / _TZ_TRANSITION_DURATION);
+            const remainingOffset = _tzTransitionOffset * (1.0 - progress);
+            const currentSecs = _timeToSeconds(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+            now = _secondsToDate(currentSecs + remainingOffset);
+        } else {
+            _tzTransitionOffset = 0;
+        }
+    }
+
+    return now;
 }
 
 /* ── helpers ──────────────────────────────────────────── */
@@ -232,10 +293,12 @@ function drawMarkers(ctx, center, radius, theme) {
                 ctx.arc(center + dist * Math.cos(angle), center + dist * Math.sin(angle), dotR, 0, Math.PI * 2);
                 ctx.fill();
             } else {
-                const mLen = markers.minute_length || 0.02;
                 const mLineOuterPct = (markers.minute_marker_radius != null ? markers.minute_marker_radius : 95) / 100;
+                const mLineInnerPct = markers.minute_marker_inner_radius != null
+                    ? markers.minute_marker_inner_radius / 100
+                    : mLineOuterPct - (markers.minute_length || 0.02);
                 const outer = radius * mLineOuterPct;
-                const inner = outer - radius * mLen;
+                const inner = radius * mLineInnerPct;
                 if (markers.minute_shadow) {
                     ctx.save();
                     ctx.translate(1, 1);
@@ -259,20 +322,21 @@ function drawMarkers(ctx, center, radius, theme) {
         }
     }
 
-    // Hour markers
+    // Hour markers (line, dot, or none)
     const style = markers.hour_style || 'line';
-    if (style === 'none') return;
-
     const hColor = hexToCSS(markers.hour_color || '#ffffff');
     const hasShadow = !!markers.hour_shadow;
 
+    // Backward compat: if style is a text variant, skip marker layer
     if (style === 'line') {
-        const hLen = markers.hour_length || 0.06;
         const hOuterPct = (markers.hour_marker_radius != null ? markers.hour_marker_radius : 95) / 100;
+        const hInnerPct = markers.hour_marker_inner_radius != null
+            ? markers.hour_marker_inner_radius / 100
+            : hOuterPct - (markers.hour_length || 0.06);
         for (let i = 0; i < 12; i++) {
             const angle = (i * 30 - 90) * Math.PI / 180;
             const outer = radius * hOuterPct;
-            const inner = outer - radius * hLen;
+            const inner = radius * hInnerPct;
             if (hasShadow) {
                 ctx.save(); ctx.translate(1, 1);
                 ctx.strokeStyle = 'rgba(0,0,0,0.3)';
@@ -309,11 +373,20 @@ function drawMarkers(ctx, center, radius, theme) {
             ctx.arc(center + dist * Math.cos(angle), center + dist * Math.sin(angle), dotR, 0, Math.PI * 2);
             ctx.fill();
         }
-    } else if (style === 'roman' || style === 'arabic' || style === 'custom') {
+    }
+    // styles 'roman'/'arabic'/'custom'/'none' — no marker layer
+
+    // Hour text layer (roman, arabic, custom, or none)
+    let textStyle = markers.hour_text_style || 'none';
+    // Backward compat: if hour_style is a text variant and hour_text_style is none
+    if (textStyle === 'none' && (style === 'roman' || style === 'arabic' || style === 'custom')) {
+        textStyle = style;
+    }
+    if (textStyle === 'roman' || textStyle === 'arabic' || textStyle === 'custom') {
         let numerals;
-        if (style === 'custom') {
+        if (textStyle === 'custom') {
             numerals = markers.hour_labels || ['XII','I','II','III','IV','V','VI','VII','VIII','IX','X','XI'];
-        } else if (style === 'roman') {
+        } else if (textStyle === 'roman') {
             numerals = ['XII','I','II','III','IV','V','VI','VII','VIII','IX','X','XI'];
         } else {
             numerals = ['12','1','2','3','4','5','6','7','8','9','10','11'];
@@ -322,7 +395,7 @@ function drawMarkers(ctx, center, radius, theme) {
         const fSize = (markers.font_size && markers.font_size > 0)
             ? markers.font_size * scale
             : radius * 0.1;
-        const fontFamily = style === 'roman' ? 'serif' : 'sans-serif';
+        const fontFamily = textStyle === 'roman' ? 'serif' : 'sans-serif';
         ctx.font = `bold ${fSize}px ${fontFamily}`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -494,6 +567,7 @@ function drawCurrentEvent(ctx, center, radius, time, theme) {
     if (!active || !active.title) return;
 
     const color = hexToCSS(active.color || '#4488ff');
+    let display = 'Now: ' + active.title;
     const ct = theme.clock_text || {};
     let yPos;
     if (ct.visible) {
@@ -509,7 +583,6 @@ function drawCurrentEvent(ctx, center, radius, time, theme) {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    let display = active.title;
     const maxW = radius * 1.2;
     while (ctx.measureText(display).width > maxW && display.length > 3) {
         display = display.slice(0, -2) + '\u2026';

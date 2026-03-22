@@ -149,17 +149,52 @@
                 <!-- Hour Markers -->
                 <fieldset class="border border-slate-600 rounded p-3">
                     <legend class="text-sm text-slate-400 px-1">Hour Markers</legend>
-                    <label class="block text-xs text-slate-400 mb-1">Style</label>
+                    <label class="block text-xs text-slate-400 mb-1">Marker Style</label>
                     <select x-model="theme.markers.hour_style" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm mb-2">
                         <option value="line">Lines</option>
                         <option value="dot">Dots</option>
-                        <option value="roman">Roman</option>
-                        <option value="arabic">Arabic</option>
-                        <option value="custom">Custom Labels</option>
                         <option value="none">None</option>
                     </select>
 
-                    <template x-if="theme.markers.hour_style === 'custom'">
+                    <label class="block text-xs text-slate-400 mb-1">Color</label>
+                    <input type="color" x-model="theme.markers.hour_color" class="w-full h-8 rounded mb-2">
+
+                    <template x-if="theme.markers.hour_style === 'line'">
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Width: <span x-text="theme.markers.hour_width"></span></label>
+                            <input type="range" x-model.number="theme.markers.hour_width" min="1" max="8" step="0.5" class="w-full mb-1">
+                            <label class="block text-xs text-slate-400 mb-1">Inner Radius: <span x-text="theme.markers.hour_marker_inner_radius + '%'"></span></label>
+                            <input type="range" x-model.number="theme.markers.hour_marker_inner_radius" min="20" max="100" step="1" class="w-full mb-1">
+                            <label class="block text-xs text-slate-400 mb-1">Outer Radius: <span x-text="theme.markers.hour_marker_radius + '%'"></span></label>
+                            <input type="range" x-model.number="theme.markers.hour_marker_radius" min="20" max="100" step="1" class="w-full mb-1">
+                        </div>
+                    </template>
+                    <template x-if="theme.markers.hour_style === 'dot'">
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Dot Radius: <span x-text="theme.markers.dot_radius"></span></label>
+                            <input type="range" x-model.number="theme.markers.dot_radius" min="2" max="12" step="0.5" class="w-full mb-1">
+                            <label class="block text-xs text-slate-400 mb-1">Outer Radius: <span x-text="theme.markers.hour_marker_radius + '%'"></span></label>
+                            <input type="range" x-model.number="theme.markers.hour_marker_radius" min="50" max="100" step="1" class="w-full mb-1">
+                        </div>
+                    </template>
+
+                    <label class="flex items-center gap-2 mt-2 text-sm">
+                        <input type="checkbox" x-model="theme.markers.hour_shadow"> Marker shadow
+                    </label>
+                </fieldset>
+
+                <!-- Hour Text -->
+                <fieldset class="border border-slate-600 rounded p-3">
+                    <legend class="text-sm text-slate-400 px-1">Hour Text</legend>
+                    <label class="block text-xs text-slate-400 mb-1">Text Style</label>
+                    <select x-model="theme.markers.hour_text_style" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm mb-2">
+                        <option value="none">None</option>
+                        <option value="roman">Roman</option>
+                        <option value="arabic">Arabic</option>
+                        <option value="custom">Custom Labels</option>
+                    </select>
+
+                    <template x-if="theme.markers.hour_text_style === 'custom'">
                         <div>
                             <label class="block text-xs text-slate-400 mb-1">Custom Labels (12 values)</label>
                             <div class="grid grid-cols-4 gap-1 mb-2">
@@ -171,44 +206,14 @@
                         </div>
                     </template>
 
-                    <label class="block text-xs text-slate-400 mb-1">Color</label>
-                    <input type="color" x-model="theme.markers.hour_color" class="w-full h-8 rounded mb-2">
-
-                    <template x-if="theme.markers.hour_style === 'line'">
-                        <div>
-                            <label class="block text-xs text-slate-400 mb-1">Width: <span x-text="theme.markers.hour_width"></span></label>
-                            <input type="range" x-model.number="theme.markers.hour_width" min="1" max="8" step="0.5" class="w-full mb-1">
-                            <label class="block text-xs text-slate-400 mb-1">Length: <span x-text="theme.markers.hour_length"></span></label>
-                            <input type="range" x-model.number="theme.markers.hour_length" min="0.02" max="0.15" step="0.01" class="w-full mb-1">
-                            <label class="block text-xs text-slate-400 mb-1">Outer Radius: <span x-text="theme.markers.hour_marker_radius + '%'"></span></label>
-                            <input type="range" x-model.number="theme.markers.hour_marker_radius" min="50" max="100" step="1" class="w-full mb-1">
-                        </div>
-                    </template>
-                    <template x-if="theme.markers.hour_style === 'dot'">
-                        <div>
-                            <label class="block text-xs text-slate-400 mb-1">Dot Radius: <span x-text="theme.markers.dot_radius"></span></label>
-                            <input type="range" x-model.number="theme.markers.dot_radius" min="2" max="12" step="0.5" class="w-full mb-1">
-                            <label class="block text-xs text-slate-400 mb-1">Outer Radius: <span x-text="theme.markers.hour_marker_radius + '%'"></span></label>
-                            <input type="range" x-model.number="theme.markers.hour_marker_radius" min="50" max="100" step="1" class="w-full mb-1">
-                        </div>
-                    </template>
-                    <template x-if="['roman','arabic','custom'].includes(theme.markers.hour_style)">
+                    <template x-if="theme.markers.hour_text_style !== 'none'">
                         <div>
                             <label class="block text-xs text-slate-400 mb-1">Font Size (0=auto): <span x-text="theme.markers.font_size"></span></label>
                             <input type="range" x-model.number="theme.markers.font_size" min="0" max="60" step="1" class="w-full mb-1">
-                        </div>
-                    </template>
-
-                    <template x-if="['roman','arabic','custom'].includes(theme.markers.hour_style)">
-                        <div>
                             <label class="block text-xs text-slate-400 mb-1">Position Radius: <span x-text="theme.markers.hour_radius + '%'"></span></label>
-                            <input type="range" x-model.number="theme.markers.hour_radius" min="50" max="95" step="1" class="w-full mb-1">
+                            <input type="range" x-model.number="theme.markers.hour_radius" min="20" max="95" step="1" class="w-full mb-1">
                         </div>
                     </template>
-
-                    <label class="flex items-center gap-2 mt-2 text-sm">
-                        <input type="checkbox" x-model="theme.markers.hour_shadow"> Marker shadow
-                    </label>
                 </fieldset>
 
                 <!-- Minute Markers -->
@@ -228,10 +233,10 @@
                         <div>
                             <label class="block text-xs text-slate-400 mb-1">Width: <span x-text="theme.markers.minute_width"></span></label>
                             <input type="range" x-model.number="theme.markers.minute_width" min="0.5" max="4" step="0.5" class="w-full mb-1">
-                            <label class="block text-xs text-slate-400 mb-1">Length: <span x-text="theme.markers.minute_length"></span></label>
-                            <input type="range" x-model.number="theme.markers.minute_length" min="0.01" max="0.06" step="0.005" class="w-full mb-1">
+                            <label class="block text-xs text-slate-400 mb-1">Inner Radius: <span x-text="theme.markers.minute_marker_inner_radius + '%'"></span></label>
+                            <input type="range" x-model.number="theme.markers.minute_marker_inner_radius" min="20" max="100" step="1" class="w-full mb-1">
                             <label class="block text-xs text-slate-400 mb-1">Outer Radius: <span x-text="theme.markers.minute_marker_radius + '%'"></span></label>
-                            <input type="range" x-model.number="theme.markers.minute_marker_radius" min="50" max="100" step="1" class="w-full">
+                            <input type="range" x-model.number="theme.markers.minute_marker_radius" min="20" max="100" step="1" class="w-full">
                         </div>
                     </template>
                     <template x-if="theme.markers.minute_style === 'dot'">
@@ -332,7 +337,7 @@
                         <input type="checkbox" x-model="theme.hands.second.visible"> Show second hand
                     </label>
                     <label class="flex items-center gap-2 text-sm mb-2">
-                        <input type="checkbox" x-model="theme.hands.second.smooth"> Smooth motion (6 fps)
+                        <input type="checkbox" x-model="theme.hands.second.smooth"> Smooth motion (15 fps)
                     </label>
                     <p class="text-xs text-slate-500 mb-2">Disabled automatically on Pi Zero for performance.</p>
                     <label class="block text-xs text-slate-400 mb-1">Color</label>
@@ -463,7 +468,27 @@ function themeEditor() {
             if (this.theme.markers.minute_shadow == null) this.theme.markers.minute_shadow = false;
             if (this.theme.markers.hour_radius == null) this.theme.markers.hour_radius = 82;
             if (this.theme.markers.hour_marker_radius == null) this.theme.markers.hour_marker_radius = 95;
+            if (this.theme.markers.hour_marker_inner_radius == null) {
+                const outerPct = this.theme.markers.hour_marker_radius / 100;
+                const len = this.theme.markers.hour_length || 0.06;
+                this.theme.markers.hour_marker_inner_radius = Math.round((outerPct - len) * 100);
+            }
             if (this.theme.markers.minute_marker_radius == null) this.theme.markers.minute_marker_radius = 95;
+            if (this.theme.markers.minute_marker_inner_radius == null) {
+                const outerPct = this.theme.markers.minute_marker_radius / 100;
+                const len = this.theme.markers.minute_length || 0.02;
+                this.theme.markers.minute_marker_inner_radius = Math.round((outerPct - len) * 100);
+            }
+            // Migrate old hour_style text variants to new hour_text_style
+            if (this.theme.markers.hour_text_style == null) {
+                const hs = this.theme.markers.hour_style;
+                if (hs === 'roman' || hs === 'arabic' || hs === 'custom') {
+                    this.theme.markers.hour_text_style = hs;
+                    this.theme.markers.hour_style = 'none';
+                } else {
+                    this.theme.markers.hour_text_style = 'none';
+                }
+            }
             if (this.theme.hands.second.counterweight == null) this.theme.hands.second.counterweight = true;
             if (this.theme.hands.second.counterweight_radius == null) this.theme.hands.second.counterweight_radius = 0.04;
             if (this.theme.hands.second.smooth == null) this.theme.hands.second.smooth = false;

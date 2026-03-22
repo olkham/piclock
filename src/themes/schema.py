@@ -15,7 +15,8 @@ THEME_SCHEMA = {
         "image": str,      # path for image background
     },
     "markers": {
-        "hour_style": str,       # "line", "dot", "roman", "arabic", "custom", "none"
+        "hour_style": str,       # "line", "dot", "none"
+        "hour_text_style": str,  # "roman", "arabic", "custom", "none"
         "hour_labels": list,     # list of 12 strings for custom style
         "hour_color": str,
         "hour_width": (int, float),
@@ -24,6 +25,7 @@ THEME_SCHEMA = {
         "font_size": (int, float),
         "hour_radius": (int, float),  # % of radius for text/dot marker position
         "hour_marker_radius": (int, float),  # % of radius for outer edge of hour line/dot markers
+        "hour_marker_inner_radius": (int, float),  # % of radius for inner edge of hour line markers
         "hour_shadow": bool,
         "show_minutes": bool,
         "minute_style": str,     # "line" or "dot"
@@ -32,6 +34,7 @@ THEME_SCHEMA = {
         "minute_length": (int, float),
         "minute_dot_radius": (int, float),
         "minute_marker_radius": (int, float),  # % of radius for outer edge of minute markers
+        "minute_marker_inner_radius": (int, float),  # % of radius for inner edge of minute line markers
         "minute_shadow": bool,
     },
     "hands": {
@@ -120,7 +123,8 @@ DEFAULT_THEME = {
         "image": "",
     },
     "markers": {
-        "hour_style": "roman",
+        "hour_style": "none",
+        "hour_text_style": "roman",
         "hour_labels": ["XII", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI"],
         "hour_color": "#e0e0e0",
         "hour_width": 3.0,
@@ -129,6 +133,7 @@ DEFAULT_THEME = {
         "font_size": 0,  # 0 = auto-calculate
         "hour_radius": 82,  # % of radius for text/dot marker position
         "hour_marker_radius": 95,  # % of radius for outer edge of hour line/dot markers
+        "hour_marker_inner_radius": 89,  # % of radius for inner edge of hour line markers
         "hour_shadow": False,
         "show_minutes": True,
         "minute_style": "line",
@@ -137,6 +142,7 @@ DEFAULT_THEME = {
         "minute_length": 0.02,
         "minute_dot_radius": 2.0,
         "minute_marker_radius": 95,  # % of radius for outer edge of minute markers
+        "minute_marker_inner_radius": 93,  # % of radius for inner edge of minute line markers
         "minute_shadow": False,
     },
     "hands": {

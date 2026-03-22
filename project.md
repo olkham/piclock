@@ -25,11 +25,12 @@ Features:
     - Marker shadow toggles for both hour and minute markers
     - Configurable size, width, length, and color for all marker types
     - Configurable position radius for text/dot hour markers (hour_radius)
-    - Configurable outer radius for hour and minute line/dot markers (hour_marker_radius, minute_marker_radius)
+    - Configurable inner and outer radius for hour and minute line/dot markers
+    - Hour markers and hour text are separate layers with independent settings
   - Second hand features
     - Configurable counterweight (toggle + radius)
     - Image support for second hand (upload custom image)
-    - Smooth motion toggle (per-theme, 6 fps)
+    - Smooth motion toggle (per-theme, 15 fps)
   - Configurable clock face background
     - Solid color
     - Gradient: radial or linear with configurable angle and multi-stop color support
@@ -41,7 +42,7 @@ Features:
   - Per-alarm animation style: ring, flash, border_glow
   - Per-alarm animation color and speed (slow, normal, fast)
   - Custom alarm sound upload (WAV, OGG, MP3) and picker per alarm
-  - Dynamic FPS: 1 fps normally, 30 fps during alarm animation, 6 fps smooth second hand
+  - Dynamic FPS: 1 fps normally, 30 fps during alarm animation/timezone transition, 15 fps smooth second hand
   - Repeat days or one-time alarms
   - Per-alarm sound enable/disable (silent alarms)
   - Configurable animation duration per alarm
@@ -52,10 +53,11 @@ Features:
   - Configurable inner and outer radius (0-100%) for full pie or donut chart
   - Configurable opacity for event slices
   - CRUD management via web UI and API
-  - Show current event title on clock face (with color dot indicator)
+  - Show current event title on clock face ("Now: {title}" with color dot indicator)
 - Timezone selector
   - Searchable dropdown showing city names with GMT±HH:MM offsets
   - Filters via `/api/timezones?q=` search query
+  - Smooth animated transition when changing timezone (1s easing)
 
 Tech Stack:
 - Python 3.11 — PyCairo vector rendering, Pygame display, Flask web server, SQLite storage

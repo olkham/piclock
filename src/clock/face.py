@@ -120,20 +120,31 @@ def draw_markers(ctx, size, theme):
         else:
             _draw_minute_markers(ctx, center, radius, markers)
 
-    # Hour markers
+    # Hour markers (line, dot, or none)
     style = markers.get("hour_style", "line")
-    if style == "roman":
-        _draw_roman_numerals(ctx, center, radius, markers)
-    elif style == "arabic":
-        _draw_arabic_numerals(ctx, center, radius, markers)
-    elif style == "custom":
-        _draw_custom_labels(ctx, center, radius, markers)
+    # Backward compat: if hour_style is a text variant, treat as no marker layer
+    if style in ("roman", "arabic", "custom"):
+        # Legacy: text-only mode — skip marker layer, draw text below
+        pass
     elif style == "dot":
         _draw_dot_markers(ctx, center, radius, markers)
     elif style == "none":
         pass
     else:
         _draw_line_markers(ctx, center, radius, markers)
+
+    # Hour text layer (roman, arabic, custom, or none)
+    text_style = markers.get("hour_text_style", "none")
+    # Backward compat: if hour_style is a text variant and hour_text_style is none,
+    # use hour_style as the text style
+    if text_style == "none" and style in ("roman", "arabic", "custom"):
+        text_style = style
+    if text_style == "roman":
+        _draw_roman_numerals(ctx, center, radius, markers)
+    elif text_style == "arabic":
+        _draw_arabic_numerals(ctx, center, radius, markers)
+    elif text_style == "custom":
+        _draw_custom_labels(ctx, center, radius, markers)
 
 
 def draw_alarm_indicators(ctx, size, theme, alarms):
@@ -184,9 +195,14 @@ def _draw_minute_markers(ctx, center, radius, markers):
     color = markers.get("minute_color", "#444444")
     r, g, b = _hex_to_rgb(color)
     width = markers.get("minute_width", 1.5)
-    length = markers.get("minute_length", 0.02)
     shadow = markers.get("minute_shadow", False)
     outer_pct = markers.get("minute_marker_radius", 95) / 100
+    inner_pct = markers.get("minute_marker_inner_radius", None)
+    if inner_pct is None:
+        length = markers.get("minute_length", 0.02)
+        inner_pct = outer_pct - length
+    else:
+        inner_pct = inner_pct / 100
 
     ctx.set_line_cap(cairo.LINE_CAP_ROUND)
 
@@ -195,7 +211,7 @@ def _draw_minute_markers(ctx, center, radius, markers):
             continue
         angle = math.radians(i * 6 - 90)
         outer = radius * outer_pct
-        inner = outer - radius * length
+        inner = radius * inner_pct
         x1, y1 = center + inner * math.cos(angle), center + inner * math.sin(angle)
         x2, y2 = center + outer * math.cos(angle), center + outer * math.sin(angle)
 
@@ -241,16 +257,21 @@ def _draw_line_markers(ctx, center, radius, markers):
     color = markers.get("hour_color", "#ffffff")
     r, g, b = _hex_to_rgb(color)
     width = markers.get("hour_width", 3.0)
-    length = markers.get("hour_length", 0.06)
     shadow = markers.get("hour_shadow", False)
     outer_pct = markers.get("hour_marker_radius", 95) / 100
+    inner_pct = markers.get("hour_marker_inner_radius", None)
+    if inner_pct is None:
+        length = markers.get("hour_length", 0.06)
+        inner_pct = outer_pct - length
+    else:
+        inner_pct = inner_pct / 100
 
     ctx.set_line_cap(cairo.LINE_CAP_ROUND)
 
     for i in range(12):
         angle = math.radians(i * 30 - 90)
         outer = radius * outer_pct
-        inner = outer - radius * length
+        inner = radius * inner_pct
         x1, y1 = center + inner * math.cos(angle), center + inner * math.sin(angle)
         x2, y2 = center + outer * math.cos(angle), center + outer * math.sin(angle)
 
@@ -522,6 +543,7 @@ def draw_current_event(ctx, size, time_info, theme, agenda_events):
     title = active_event.get("title", "")
     if not title:
         return
+    title = "Now: " + title
 
     color = active_event.get("color", "#4488ff")
     r, g, b = _hex_to_rgb(color)

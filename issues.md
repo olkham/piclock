@@ -1,9 +1,4 @@
-- increase the smooth second hand motion to 15fps
+- add option to show date in the center of the clock, with configurable font size, color, position radius, and toggle for day of week
+- set opacity of background image and background color
 
-- Show the current agenda item text as "Now: {event title}"
-
-- let the users set the min and max radius percentage of the hour and minute markers, we currently set the length and outer radius. The length of the markers should be defined by the inner and outer radius percentage, so that users can create styles with very long or short markers, or even have the hour markers be longer than the minute markers. This also allows for more creative freedom in marker placement, such as having the hour markers be closer to the center than the minute markers.
-
-- separate the hour marker and the hour text into two different layers, so that users can have the hour text be closer to the center than the hour markers, or even have the hour text be outside of the hour markers. This also allows for more creative freedom in marker placement, such as having the hour text be closer to the center than the minute markers, while the hour markers are further out.
-
-- when changing the time zone, the clock should smoothly transition to the new time instead of jumping, this can be done by calculating the time difference and animating the hands to the new position over a short duration (e.g., 1 second) using an easing function for a smooth effect.
+- currently when chaning the timezone, the clock spins rapidly to the new time. Add a smooth animated transition (1s ease) where the hands move independently to their new positions. rather than spinning the second and minute hands together rapidly, they should take 1 second to smoothly transition to the new time, easing out at the end. This will be a more visually appealing way to handle timezone changes, rather than a jarring jump or rapid spin. The hour hand should also move smoothly to its new position based on the new time. Each hand can rotate forwards or backwards to the new position, taking the shortest path. During the transition, the clock should still show a valid time (interpolating between old and new) rather than freezing or showing an invalid time.
