@@ -99,10 +99,13 @@ def main():
     power_manager.start()
 
     # Start alarm scheduler (stays in main process — needs engine.set_overlay)
+    # Polled from the engine's render loop via set_alarm_scheduler() — no
+    # background timer threads that could steal the GIL and cause stutter.
     from src.alarms.scheduler import AlarmScheduler
 
     alarm_scheduler = AlarmScheduler(settings, engine)
     alarm_scheduler.start()
+    engine.set_alarm_scheduler(alarm_scheduler)
 
     try:
         # Run clock (blocks)

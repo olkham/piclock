@@ -1,6 +1,13 @@
-"""Alarm scheduler — checks alarms and triggers audio + visual alerts."""
+"""Alarm scheduler — checks alarms and triggers audio + visual alerts.
 
+Alarm checking is pull-based: the engine calls poll() from its own render
+loop during the settings-reload phase.  This avoids threading.Timer threads
+that steal the GIL and cause smooth second hand stutter.
+"""
+
+import json
 import threading
+import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -8,39 +15,50 @@ from src.alarms.ipc import read_alarm_command, write_alarm_state
 
 
 class AlarmScheduler:
-    """Periodically checks if any alarm should fire."""
+    """Periodically checks if any alarm should fire.
+
+    Call poll() from the render loop — no background timer threads are used
+    for alarm checking, eliminating GIL contention with the render thread.
+    """
+
+    CHECK_INTERVAL = 10  # seconds between alarm checks
 
     def __init__(self, settings, engine):
         self._settings = settings
         self._engine = engine
-        self._timer = None
         self._cmd_timer = None
         self._running = False
         self._active_alarm = None
         self._dismiss_timer = None
         self._lock = threading.Lock()
+        self._last_check = 0.0
+        self._last_alarms_json = None  # cached JSON string for change detection
         # Write initial state so Flask always has a valid file
         write_alarm_state(None)
 
     def start(self):
         self._running = True
-        self._schedule_check()
 
     def stop(self):
         self._running = False
-        if self._timer:
-            self._timer.cancel()
         if self._cmd_timer:
             self._cmd_timer.cancel()
         self._stop_alarm()
 
-    def _schedule_check(self):
+    def poll(self):
+        """Called from the engine's render loop — check alarms if due.
+
+        This replaces the old threading.Timer approach. Running alarm
+        checks synchronously inside the render loop's settings-reload
+        phase means no background thread can steal the GIL mid-frame.
+        """
         if not self._running:
             return
+        now_ts = time.time()
+        if now_ts - self._last_check < self.CHECK_INTERVAL:
+            return
+        self._last_check = now_ts
         self._check_alarms()
-        self._timer = threading.Timer(10, self._schedule_check)
-        self._timer.daemon = True
-        self._timer.start()
 
     def _check_alarms(self):
         from src.config.settings import get_enabled_alarms, disable_alarm
@@ -56,8 +74,12 @@ class AlarmScheduler:
 
         all_alarms = get_enabled_alarms()
 
-        # Feed all enabled alarms to engine for indicator rendering
-        self._engine.set_alarms(all_alarms)
+        # Only update engine when alarm data actually changes — avoids
+        # triggering the renderer's identity-based static cache rebuild.
+        alarms_json = json.dumps(all_alarms, sort_keys=True)
+        if alarms_json != self._last_alarms_json:
+            self._last_alarms_json = alarms_json
+            self._engine.set_alarms(all_alarms)
 
         for alarm in all_alarms:
             if alarm["time"] == current_time:

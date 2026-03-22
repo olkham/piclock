@@ -68,6 +68,12 @@ class ClockEngine:
         self._time_info = {"hour": 0, "minute": 0, "second": 0, "microsecond": 0}
         # Frame timing diagnostics (enabled via --debug-fps)
         self.debug_fps = False
+        # Alarm scheduler — polled from settings-reload path (no timer threads)
+        self._alarm_scheduler = None
+
+    def set_alarm_scheduler(self, scheduler):
+        """Attach alarm scheduler for polling from the render loop."""
+        self._alarm_scheduler = scheduler
 
     def set_alarm_callback(self, callback):
         """Set a callback that returns overlay draw info when an alarm is active."""
@@ -316,6 +322,9 @@ class ClockEngine:
                 self._cfg_timezone = "UTC"
                 self._cfg_tz = ZoneInfo("UTC")
         self._cfg_theme = self._theme_manager.get_active_theme()
+        # Poll alarm scheduler (replaces timer thread — no GIL contention)
+        if self._alarm_scheduler:
+            self._alarm_scheduler.poll()
 
     def stop(self):
         """Signal the engine to stop."""
