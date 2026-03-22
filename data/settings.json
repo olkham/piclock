@@ -1,4 +1,8 @@
 {
   "timezone": "Etc/GMT",
-  "active_theme": "outside-in"
+  "active_theme": "outside-in",
+  "render_smooth_fps": 30,
+  "render_animation_fps": 60,
+  "render_idle_fps": 1,
+  "render_bypass_compositor": false
 }

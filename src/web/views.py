@@ -15,6 +15,10 @@ def create_views_blueprint():
             timezone=settings.get("timezone", "UTC"),
             active_theme=settings.get("active_theme", "Classic"),
             themes=tm.list_themes(),
+            render_smooth_fps=int(settings.get("render_smooth_fps", 15)),
+            render_animation_fps=int(settings.get("render_animation_fps", 30)),
+            render_idle_fps=int(settings.get("render_idle_fps", 1)),
+            render_bypass_compositor=bool(settings.get("render_bypass_compositor", False)),
         )
 
     @bp.route("/themes")

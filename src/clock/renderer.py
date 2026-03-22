@@ -2,7 +2,6 @@ import math
 
 import cairo
 import numpy as np
-import pygame
 
 from src.clock.display import DISPLAY_SIZE
 
@@ -149,4 +148,4 @@ def render_frame(time_info, theme, overlay_fn=None, alarms=None, agenda_events=N
     _conv_arr[:, :, 1] = src[:, :, 1]  # G
     _conv_arr[:, :, 2] = src[:, :, 0]  # B ← R
     # _conv_arr writes directly into _conv_buf — no copy needed
-    return pygame.image.frombuffer(_conv_buf, (size, size), "RGB")
+    return _conv_buf

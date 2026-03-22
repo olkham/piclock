@@ -36,7 +36,7 @@ def main():
             print(f"Warning: Theme '{args.theme}' not found, using default")
 
     # Initialize display
-    init_display(windowed=args.windowed)
+    init_display(windowed=args.windowed, settings=settings)
 
     # Create engine
     engine = ClockEngine(theme_manager, settings)

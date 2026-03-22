@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 import pygame
 
 from src.clock.renderer import render_frame
-from src.clock.display import show_frame
+from src.clock.display import show_frame_from_buffer
 
 
 def _ease_in_out(t):
@@ -55,6 +55,13 @@ class ClockEngine:
         self._tz_old_angles = None     # {hour, minute, second} angles at start
         self._tz_new_time_info = None  # time_info snapshot at transition start
         self._TZ_TRANSITION_DURATION = 1.0  # seconds
+        # Cached render settings (refreshed periodically, not per-frame)
+        self._render_settings_last_load = 0
+        self._cfg_smooth_fps = 15
+        self._cfg_animation_fps = 30
+        self._cfg_idle_fps = 1
+        self._cfg_timezone = "UTC"
+        self._cfg_theme = None
 
     def set_alarm_callback(self, callback):
         """Set a callback that returns overlay draw info when an alarm is active."""
@@ -109,8 +116,11 @@ class ClockEngine:
             if not self._running:
                 break
 
-            # Get current time in configured timezone
-            tz_name = self._settings.get("timezone", "UTC")
+            # Reload cached settings periodically (every 2s, not per-frame)
+            self._maybe_reload_render_settings()
+
+            # Get current time in configured timezone (cached, no per-frame I/O)
+            tz_name = self._cfg_timezone
             try:
                 tz = ZoneInfo(tz_name)
             except Exception:
@@ -158,8 +168,8 @@ class ClockEngine:
                 else:
                     self._tz_old_angles = None
 
-            # Get active theme
-            theme = self._theme_manager.get_active_theme()
+            # Get active theme (cached, refreshed every 2s)
+            theme = self._cfg_theme or self._theme_manager.get_active_theme()
 
             # Determine if smooth second hand is enabled (per-theme setting)
             smooth = theme.get("hands", {}).get("second", {}).get("smooth", False)
@@ -171,7 +181,7 @@ class ClockEngine:
             self._maybe_reload_agenda(now.strftime("%a"))
 
             # Render frame (with optional alarm overlay + alarm indicators)
-            surface = render_frame(
+            rgb_buf = render_frame(
                 time_info, theme,
                 overlay_fn=self._overlay_fn,
                 alarms=self._alarms,
@@ -179,17 +189,32 @@ class ClockEngine:
                 hand_angles=hand_angles,
             )
 
-            # Show frame
-            show_frame(surface)
+            # Show frame (direct buffer path — no intermediate Pygame surface)
+            show_frame_from_buffer(rgb_buf)
 
-            # Dynamic FPS: 30fps alarm/transition, 15fps smooth hands, 1fps default
+            # Dynamic FPS using cached render settings (no per-frame I/O)
             if self._alarm_active or tz_transitioning:
-                target_fps = 30
+                target_fps = self._cfg_animation_fps
             elif smooth:
-                target_fps = 15
+                target_fps = self._cfg_smooth_fps
             else:
-                target_fps = 1
+                target_fps = self._cfg_idle_fps
             clock.tick(target_fps)
+
+    def _maybe_reload_render_settings(self):
+        """Reload FPS and timezone settings from storage every 2 seconds (not per-frame)."""
+        now_ts = time.time()
+        if now_ts - self._render_settings_last_load < 2:
+            return
+        self._render_settings_last_load = now_ts
+        try:
+            self._cfg_smooth_fps = int(self._settings.get("render_smooth_fps", 15))
+            self._cfg_animation_fps = int(self._settings.get("render_animation_fps", 30))
+            self._cfg_idle_fps = max(1, int(self._settings.get("render_idle_fps", 1)))
+        except (ValueError, TypeError):
+            pass
+        self._cfg_timezone = self._settings.get("timezone", "UTC") or "UTC"
+        self._cfg_theme = self._theme_manager.get_active_theme()
 
     def stop(self):
         """Signal the engine to stop."""
