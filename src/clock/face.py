@@ -631,8 +631,10 @@ def draw_current_event(ctx, size, time_info, theme, agenda_events):
     x = center - total_w / 2 + icon_size + icon_gap
     y = y_pos + extents.height / 2
 
-    # Calendar icon
-    _draw_calendar_icon(ctx, x - icon_gap - icon_size / 2, y - extents.height / 2 + icon_size / 2, icon_size, r, g, b)
+    # Calendar icon — vertically centered with text
+    icon_cx = x - icon_gap - icon_size / 2
+    icon_cy = y - extents.height / 2
+    _draw_calendar_icon(ctx, icon_cx, icon_cy, icon_size, r, g, b)
 
     # Shadow
     ctx.set_source_rgba(0, 0, 0, 0.4)

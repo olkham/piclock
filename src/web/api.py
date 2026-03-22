@@ -386,26 +386,47 @@ def create_api_blueprint():
 
     @bp.route("/update/check", methods=["GET"])
     def check_update():
-        """Check GitHub for a newer release. Returns latest version or null."""
+        """Check GitHub for a newer version by reading the remote _version.py."""
         ver = __version__
         settings = current_app.settings
         repo = settings.get("github_repo", "")
         if not repo:
             return jsonify({"current": ver, "latest": None, "update_available": False})
-        url = f"https://api.github.com/repos/{repo}/releases/latest"
-        req = urllib.request.Request(url, headers={"Accept": "application/vnd.github.v3+json"})
+        url = f"https://raw.githubusercontent.com/{repo}/refs/heads/main/src/_version.py"
+        req = urllib.request.Request(url)
         try:
             with urllib.request.urlopen(req, timeout=10) as resp:
-                data = json.loads(resp.read())
-            latest = data.get("tag_name", "").lstrip("v")
+                content = resp.read().decode("utf-8")
+            # Parse __version__ = "x.y.z" from the file
+            match = re.search(r'__version__\s*=\s*["\']([^"\']+)["\']', content)
+            latest = match.group(1) if match else None
             return jsonify({
                 "current": ver,
                 "latest": latest,
-                "update_available": latest and latest != ver,
-                "html_url": data.get("html_url", ""),
+                "update_available": bool(latest and latest != ver),
             })
         except Exception:
             return jsonify({"current": ver, "latest": None, "update_available": False})
+
+    @bp.route("/update/run", methods=["POST"])
+    def run_update():
+        """Run the update script in the background."""
+        script = os.path.join(
+            os.path.dirname(__file__), "..", "..", "scripts", "update.sh"
+        )
+        script = os.path.abspath(script)
+        if not os.path.isfile(script):
+            return jsonify({"error": "Update script not found"}), 404
+        try:
+            subprocess.Popen(
+                ["sudo", "bash", script],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+            return jsonify({"status": "updating", "message": "Update started. The service will restart shortly."})
+        except Exception as exc:
+            return jsonify({"error": str(exc)}), 500
 
     # --- Theme auto-cycle ---
 

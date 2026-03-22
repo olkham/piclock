@@ -80,12 +80,22 @@
             <div class="mt-4 p-3 rounded text-sm"
                  :class="updateResult.update_available ? 'bg-amber-900/50 text-amber-200' : 'bg-green-900/50 text-green-200'">
                 <template x-if="updateResult.update_available">
-                    <span>Update available: <strong x-text="updateResult.latest_version"></strong></span>
+                    <div class="flex items-center justify-between gap-4">
+                        <span>Update available: <strong x-text="updateResult.latest"></strong></span>
+                        <button @click="runUpdate()" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded text-sm transition-colors whitespace-nowrap"
+                                :disabled="updating">
+                            <span x-show="!updating">Update Now</span>
+                            <span x-show="updating">Updating…</span>
+                        </button>
+                    </div>
                 </template>
                 <template x-if="!updateResult.update_available">
                     <span>You're up to date.</span>
                 </template>
             </div>
+        </template>
+        <template x-if="updateMessage">
+            <div class="mt-3 p-3 rounded text-sm bg-blue-900/50 text-blue-200" x-text="updateMessage"></div>
         </template>
     </div>
 
@@ -129,6 +139,8 @@ function settingsPage() {
         currentVersion: null,
         checking: false,
         updateResult: null,
+        updating: false,
+        updateMessage: null,
         confirmAction: null,
 
         async init() {
@@ -160,6 +172,7 @@ function settingsPage() {
         async checkUpdate() {
             this.checking = true;
             this.updateResult = null;
+            this.updateMessage = null;
             try {
                 const resp = await fetch('/api/update/check');
                 this.updateResult = await resp.json();
@@ -167,6 +180,23 @@ function settingsPage() {
                 this.updateResult = { update_available: false };
             }
             this.checking = false;
+        },
+
+        async runUpdate() {
+            this.updating = true;
+            this.updateMessage = null;
+            try {
+                const resp = await fetch('/api/update/run', { method: 'POST' });
+                const data = await resp.json();
+                if (resp.ok) {
+                    this.updateMessage = data.message || 'Update started. The service will restart shortly.';
+                } else {
+                    this.updateMessage = 'Error: ' + (data.error || 'Update failed.');
+                }
+            } catch {
+                this.updateMessage = 'Error: Could not reach the server.';
+            }
+            this.updating = false;
         },
 
         async doSystemAction() {
