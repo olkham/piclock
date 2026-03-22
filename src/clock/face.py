@@ -42,6 +42,53 @@ def _get_emoji_font(size):
     return ImageFont.load_default()
 
 
+def _draw_calendar_icon(ctx, cx, cy, size, r, g, b):
+    """Draw a simple calendar icon using Cairo paths."""
+    ctx.save()
+    s = size / 2
+    # Calendar body (rounded rectangle)
+    ctx.set_source_rgb(r, g, b)
+    _x = cx - s * 0.7
+    _y = cy - s * 0.5
+    _w = s * 1.4
+    _h = s * 1.3
+    corner = s * 0.15
+    ctx.new_path()
+    ctx.arc(_x + corner, _y + corner, corner, math.pi, 1.5 * math.pi)
+    ctx.arc(_x + _w - corner, _y + corner, corner, 1.5 * math.pi, 0)
+    ctx.arc(_x + _w - corner, _y + _h - corner, corner, 0, 0.5 * math.pi)
+    ctx.arc(_x + corner, _y + _h - corner, corner, 0.5 * math.pi, math.pi)
+    ctx.close_path()
+    ctx.fill()
+
+    # Header bar (darker stripe at top)
+    ctx.set_source_rgba(0, 0, 0, 0.3)
+    ctx.rectangle(_x, _y, _w, s * 0.35)
+    ctx.fill()
+
+    # Two small tabs on top
+    ctx.set_source_rgb(r, g, b)
+    tab_w = s * 0.12
+    ctx.set_line_width(tab_w)
+    ctx.set_line_cap(cairo.LINE_CAP_ROUND)
+    for tx in [cx - s * 0.3, cx + s * 0.3]:
+        ctx.move_to(tx, _y - s * 0.15)
+        ctx.line_to(tx, _y + s * 0.15)
+        ctx.stroke()
+
+    # Grid dots (representing dates)
+    ctx.set_source_rgba(0, 0, 0, 0.4)
+    dot = s * 0.08
+    for row in range(2):
+        for col in range(3):
+            dx = cx + (col - 1) * s * 0.4
+            dy = cy + s * 0.05 + row * s * 0.35
+            ctx.arc(dx, dy, dot, 0, 2 * math.pi)
+            ctx.fill()
+
+    ctx.restore()
+
+
 def draw_background(ctx, size, theme):
     """Draw the clock face background."""
     bg = theme.get("background", {})
@@ -577,17 +624,20 @@ def draw_current_event(ctx, size, time_info, theme, agenda_events):
         display_title = display_title[:-2] + "\u2026"
         extents = ctx.text_extents(display_title)
 
-    x = center - extents.width / 2
+    # Account for calendar icon space in total width
+    icon_size = font_size * 0.8
+    icon_gap = font_size * 0.3
+    total_w = icon_size + icon_gap + extents.width
+    x = center - total_w / 2 + icon_size + icon_gap
     y = y_pos + extents.height / 2
 
-    # Color dot indicator
-    dot_r = font_size * 0.25
-    ctx.set_source_rgb(r, g, b)
-    ctx.arc(x - dot_r * 2, y - extents.height / 2 + dot_r, dot_r, 0, 2 * math.pi)
-    ctx.fill()
+    # Calendar icon
+    _draw_calendar_icon(ctx, x - icon_gap - icon_size / 2, y - extents.height / 2 + icon_size / 2, icon_size, r, g, b)
 
     # Shadow
     ctx.set_source_rgba(0, 0, 0, 0.4)
+    ctx.select_font_face(_SANS_FONT, cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+    ctx.set_font_size(font_size)
     ctx.move_to(x + 1, y + 1)
     ctx.show_text(display_title)
 

@@ -39,13 +39,23 @@ class AlarmOverlay:
         else:
             self._draw_ring(ctx, center, radius, pulse, r, g, b)
 
-        # Label text
+        # Label text with alarm bell icon
+        label_text = self._label
         ctx.set_source_rgba(1.0, 1.0, 1.0, 0.9)
         ctx.select_font_face(_FONT, cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
-        ctx.set_font_size(radius * 0.08)
-        extents = ctx.text_extents(self._label)
-        ctx.move_to(center - extents.width / 2, center + radius * 0.35)
-        ctx.show_text(self._label)
+        font_size = radius * 0.08
+        ctx.set_font_size(font_size)
+        extents = ctx.text_extents(label_text)
+        total_w = font_size * 0.9 + extents.width
+        text_x = center - total_w / 2 + font_size * 0.9
+        text_y = center + radius * 0.35
+
+        # Draw bell icon to the left of the label
+        _draw_bell_icon(ctx, text_x - font_size * 0.6, text_y - font_size * 0.5, font_size * 0.7)
+
+        ctx.set_source_rgba(1.0, 1.0, 1.0, 0.9)
+        ctx.move_to(text_x, text_y)
+        ctx.show_text(label_text)
 
     def _draw_ring(self, ctx, center, radius, pulse, r, g, b):
         alpha = 0.2 + pulse * 0.5
@@ -83,3 +93,38 @@ class AlarmOverlay:
 def _hex_to_rgb(hex_color):
     hex_color = hex_color.lstrip("#")
     return tuple(int(hex_color[i:i+2], 16) / 255.0 for i in (0, 2, 4))
+
+
+def _draw_bell_icon(ctx, cx, cy, size):
+    """Draw a simple bell/alarm icon using Cairo paths."""
+    ctx.save()
+    ctx.set_source_rgba(1.0, 1.0, 1.0, 0.9)
+    s = size / 2
+
+    # Bell body (rounded trapezoid shape)
+    ctx.move_to(cx - s * 0.7, cy + s * 0.5)
+    ctx.curve_to(cx - s * 0.7, cy - s * 0.3,
+                 cx - s * 0.4, cy - s * 0.9,
+                 cx, cy - s * 0.9)
+    ctx.curve_to(cx + s * 0.4, cy - s * 0.9,
+                 cx + s * 0.7, cy - s * 0.3,
+                 cx + s * 0.7, cy + s * 0.5)
+    ctx.close_path()
+    ctx.fill()
+
+    # Bell rim (horizontal bar at bottom)
+    ctx.set_line_width(s * 0.15)
+    ctx.move_to(cx - s * 0.85, cy + s * 0.5)
+    ctx.line_to(cx + s * 0.85, cy + s * 0.5)
+    ctx.stroke()
+
+    # Clapper (small circle at bottom)
+    ctx.arc(cx, cy + s * 0.75, s * 0.15, 0, 2 * math.pi)
+    ctx.fill()
+
+    # Handle (small arc on top)
+    ctx.set_line_width(s * 0.12)
+    ctx.arc(cx, cy - s * 0.9, s * 0.2, math.pi, 0)
+    ctx.stroke()
+
+    ctx.restore()

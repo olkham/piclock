@@ -601,7 +601,7 @@ function drawCurrentEvent(ctx, center, radius, time, theme) {
     if (!active || !active.title) return;
 
     const color = hexToCSS(active.color || '#4488ff');
-    let display = 'Now: ' + active.title;
+    let display = '\uD83D\uDCC5 Now: ' + active.title;
     const ct = theme.clock_text || {};
     let yPos;
     if (ct.visible) {
@@ -621,14 +621,6 @@ function drawCurrentEvent(ctx, center, radius, time, theme) {
     while (ctx.measureText(display).width > maxW && display.length > 3) {
         display = display.slice(0, -2) + '\u2026';
     }
-
-    // Dot indicator
-    const dotR = fs * 0.25;
-    const textW = ctx.measureText(display).width;
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.arc(center - textW / 2 - dotR * 2, yPos, dotR, 0, Math.PI * 2);
-    ctx.fill();
 
     // Shadow
     ctx.fillStyle = 'rgba(0,0,0,0.4)';

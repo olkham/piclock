@@ -12,16 +12,6 @@ from src.clock.renderer import render_frame
 from src.clock.display import show_frame
 
 
-def _is_pi_zero():
-    """Detect Raspberry Pi Zero for performance fallback."""
-    try:
-        with open("/proc/device-tree/model", "r") as f:
-            model = f.read().lower()
-            return "pi zero" in model
-    except Exception:
-        return False
-
-
 def _ease_in_out(t):
     """Smooth ease-in-out (sinusoidal)."""
     return 0.5 - 0.5 * math.cos(math.pi * t)
@@ -60,7 +50,6 @@ class ClockEngine:
         self._alarms = []
         self._agenda_events = []
         self._agenda_last_load = 0
-        self._is_pi_zero = _is_pi_zero()
         self._last_tz_name = None
         self._tz_transition_start = 0  # time.time() when transition began
         self._tz_old_angles = None     # {hour, minute, second} angles at start
@@ -174,8 +163,8 @@ class ClockEngine:
 
             # Determine if smooth second hand is enabled (per-theme setting)
             smooth = theme.get("hands", {}).get("second", {}).get("smooth", False)
-            if not smooth or self._is_pi_zero:
-                # Snap second hand to integer seconds even during alarm animation
+            if not smooth:
+                # Snap second hand to integer seconds
                 time_info["microsecond"] = 0
 
             # Reload agenda events periodically
@@ -196,7 +185,7 @@ class ClockEngine:
             # Dynamic FPS: 30fps alarm/transition, 15fps smooth hands, 1fps default
             if self._alarm_active or tz_transitioning:
                 target_fps = 30
-            elif smooth and not self._is_pi_zero:
+            elif smooth:
                 target_fps = 15
             else:
                 target_fps = 1
