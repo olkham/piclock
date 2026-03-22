@@ -3,11 +3,16 @@
 import json
 import os
 
-from src.config.settings import get_db
 from src.themes.schema import DEFAULT_THEME, merge_with_defaults, validate_theme
 
 
 _THEMES_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data", "themes")
+
+
+def _theme_path(name):
+    """Return the JSON file path for a theme by name."""
+    safe = name.replace(os.sep, "_").replace("/", "_")
+    return os.path.join(_THEMES_DIR, f"{safe}.json")
 
 
 class ThemeManager:
@@ -29,49 +34,29 @@ class ThemeManager:
                         theme = json.load(f)
                     theme = merge_with_defaults(theme)
                     self._cache[theme["name"]] = theme
-                    self._save_to_db(theme)
                 except (json.JSONDecodeError, KeyError):
                     continue
 
         # Ensure at least the built-in default exists
         if DEFAULT_THEME["name"] not in self._cache:
             self._cache[DEFAULT_THEME["name"]] = DEFAULT_THEME
-            self._save_to_db(DEFAULT_THEME)
+            self._save_to_file(DEFAULT_THEME)
 
-    def _save_to_db(self, theme):
-        conn = get_db()
-        try:
-            conn.execute(
-                "INSERT OR REPLACE INTO themes (name, data) VALUES (?, ?)",
-                (theme["name"], json.dumps(theme)),
-            )
-            conn.commit()
-        finally:
-            conn.close()
+    def _save_to_file(self, theme):
+        """Write theme JSON to data/themes/{name}.json."""
+        path = _theme_path(theme["name"])
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(theme, f, indent=2)
+        os.replace(tmp, path)
 
     def list_themes(self):
         """Return a list of all theme names."""
-        conn = get_db()
-        try:
-            rows = conn.execute("SELECT name FROM themes ORDER BY name").fetchall()
-            return [row["name"] for row in rows]
-        finally:
-            conn.close()
+        return sorted(self._cache.keys())
 
     def get_theme(self, name):
         """Get a theme by name."""
-        if name in self._cache:
-            return self._cache[name]
-        conn = get_db()
-        try:
-            row = conn.execute("SELECT data FROM themes WHERE name = ?", (name,)).fetchone()
-            if row:
-                theme = json.loads(row["data"])
-                self._cache[name] = theme
-                return theme
-        finally:
-            conn.close()
-        return None
+        return self._cache.get(name)
 
     def get_active_theme(self):
         """Get the currently active theme."""
@@ -92,7 +77,7 @@ class ThemeManager:
             raise ValueError(f"Invalid theme: {'; '.join(errors)}")
         theme = merge_with_defaults(theme)
         self._cache[theme["name"]] = theme
-        self._save_to_db(theme)
+        self._save_to_file(theme)
         return theme
 
     def delete_theme(self, name):
@@ -100,12 +85,9 @@ class ThemeManager:
         if name == DEFAULT_THEME["name"]:
             raise ValueError("Cannot delete the built-in default theme")
         self._cache.pop(name, None)
-        conn = get_db()
-        try:
-            conn.execute("DELETE FROM themes WHERE name = ?", (name,))
-            conn.commit()
-        finally:
-            conn.close()
+        path = _theme_path(name)
+        if os.path.exists(path):
+            os.remove(path)
 
         # If this was the active theme, revert to default
         if self._settings.get("active_theme") == name:

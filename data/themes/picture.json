@@ -1,0 +1,132 @@
+{
+  "name": "picture",
+  "background": {
+    "type": "image",
+    "color": "#0f0f23",
+    "colors": [
+      "#0f0f23",
+      "#1b2838",
+      "#2a3f5f"
+    ],
+    "gradient_type": "radial",
+    "gradient_angle": 0,
+    "gradient_center_x": 0.5,
+    "gradient_center_y": 0.5,
+    "gradient_radius": 1,
+    "color_stops": [],
+    "image": "C:\\Users\\olive\\OneDrive\\Projects\\piclock3\\src\\web\\..\\..\\data\\uploads\\BlueTit.png",
+    "image_opacity": 100,
+    "color_opacity": 100
+  },
+  "markers": {
+    "hour_style": "none",
+    "hour_text_style": "arabic",
+    "hour_labels": [
+      "XII",
+      "I",
+      "II",
+      "III",
+      "IV",
+      "V",
+      "VI",
+      "VII",
+      "VIII",
+      "IX",
+      "X",
+      "XI"
+    ],
+    "hour_color": "#ffffff",
+    "hour_width": 2.5,
+    "hour_length": 0.07,
+    "dot_radius": 5,
+    "font_size": 0,
+    "hour_radius": 90,
+    "hour_marker_radius": 95,
+    "hour_marker_inner_radius": 89,
+    "hour_shadow": false,
+    "show_minutes": true,
+    "minute_style": "line",
+    "minute_color": "#ffffff",
+    "minute_width": 1,
+    "minute_length": 0.015,
+    "minute_dot_radius": 2,
+    "minute_marker_radius": 95,
+    "minute_marker_inner_radius": 93,
+    "minute_shadow": false
+  },
+  "hands": {
+    "hour": {
+      "style": "tapered",
+      "color": "#ffffff",
+      "width": 10,
+      "length": 0.42,
+      "tail": 0.06,
+      "shadow": true,
+      "glow": false,
+      "glow_color": "#ffffff",
+      "image": "",
+      "end": 42,
+      "start": -6
+    },
+    "minute": {
+      "style": "tapered",
+      "color": "#cceeFF",
+      "width": 6,
+      "length": 0.68,
+      "tail": 0.08,
+      "shadow": true,
+      "glow": false,
+      "glow_color": "#ffffff",
+      "image": "",
+      "end": 68,
+      "start": -8
+    },
+    "second": {
+      "visible": true,
+      "color": "#44aaff",
+      "length": 0.74,
+      "tail": 0.12,
+      "shadow": true,
+      "glow": false,
+      "glow_color": "#ff4444",
+      "style": "line",
+      "image": "",
+      "counterweight": false,
+      "counterweight_radius": 0.04,
+      "smooth": false,
+      "end": 74,
+      "start": -12
+    }
+  },
+  "center_dot": {
+    "visible": true,
+    "color": "#88ccff",
+    "radius": 5
+  },
+  "alarm_indicators": {
+    "visible": true,
+    "color": "#ffaa00",
+    "size": 4
+  },
+  "clock_text": {
+    "visible": true,
+    "format": "24h",
+    "color": "#ffffff",
+    "font_size": 0,
+    "offset_y": 25
+  },
+  "date_display": {
+    "visible": true,
+    "color": "#ffffff",
+    "font_size": 0,
+    "offset_y": 38,
+    "show_day_of_week": true
+  },
+  "agenda": {
+    "enabled": false,
+    "min_radius": 0,
+    "max_radius": 80,
+    "opacity": 35,
+    "show_current_event": false
+  }
+}

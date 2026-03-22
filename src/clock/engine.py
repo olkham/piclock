@@ -81,20 +81,16 @@ class ClockEngine:
         self._alarms = alarms
 
     def _maybe_reload_agenda(self, current_day):
-        """Reload agenda events from DB every 60 seconds."""
+        """Reload agenda events from JSON every 60 seconds."""
         now_ts = time.time()
         if now_ts - self._agenda_last_load < 60:
             return
         self._agenda_last_load = now_ts
-        from src.config.settings import get_db
-        conn = get_db()
+        from src.config.settings import list_agenda_events
         try:
-            rows = conn.execute("SELECT * FROM agenda_events").fetchall()
-            all_events = [dict(row) for row in rows]
+            all_events = list_agenda_events()
         except Exception:
             all_events = []
-        finally:
-            conn.close()
         # Filter to events active today
         filtered = []
         for ev in all_events:

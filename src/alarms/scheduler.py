@@ -36,7 +36,7 @@ class AlarmScheduler:
         self._timer.start()
 
     def _check_alarms(self):
-        from src.config.settings import get_db
+        from src.config.settings import get_enabled_alarms, disable_alarm
 
         tz_name = self._settings.get("timezone", "UTC")
         try:
@@ -47,14 +47,7 @@ class AlarmScheduler:
         current_time = now.strftime("%H:%M")
         current_day = now.strftime("%a")
 
-        conn = get_db()
-        try:
-            rows = conn.execute(
-                "SELECT * FROM alarms WHERE enabled = 1"
-            ).fetchall()
-            all_alarms = [dict(row) for row in rows]
-        finally:
-            conn.close()
+        all_alarms = get_enabled_alarms()
 
         # Feed all enabled alarms to engine for indicator rendering
         self._engine.set_alarms(all_alarms)
@@ -69,15 +62,7 @@ class AlarmScheduler:
                 else:
                     self._trigger_alarm(alarm)
                     # One-time alarm — disable after firing
-                    conn = get_db()
-                    try:
-                        conn.execute(
-                            "UPDATE alarms SET enabled = 0 WHERE id = ?",
-                            (alarm["id"],),
-                        )
-                        conn.commit()
-                    finally:
-                        conn.close()
+                    disable_alarm(alarm["id"])
 
     def _trigger_alarm(self, alarm):
         with self._lock:

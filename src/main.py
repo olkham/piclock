@@ -7,7 +7,7 @@ import threading
 
 from src.clock.display import init_display, shutdown_display
 from src.clock.engine import ClockEngine
-from src.config.settings import Settings, set_setting
+from src.config.settings import Settings
 from src.themes.manager import ThemeManager
 
 

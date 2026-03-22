@@ -129,88 +129,32 @@ def create_api_blueprint():
 
     @bp.route("/alarms", methods=["GET"])
     def list_alarms():
-        from src.config.settings import get_db
-        conn = get_db()
-        try:
-            rows = conn.execute("SELECT * FROM alarms ORDER BY time").fetchall()
-            alarms = [dict(row) for row in rows]
-            return jsonify(alarms)
-        finally:
-            conn.close()
+        from src.config.settings import list_alarms as _list_alarms
+        return jsonify(_list_alarms())
 
     @bp.route("/alarms", methods=["POST"])
     def create_alarm():
-        from src.config.settings import get_db
+        from src.config.settings import create_alarm as _create_alarm
         data = request.get_json()
         if not data or "time" not in data:
             return jsonify({"error": "Missing 'time' field"}), 400
-        conn = get_db()
-        try:
-            cursor = conn.execute(
-                """INSERT INTO alarms (time, days, sound, enabled, label,
-                   animation_shape, animation_color, animation_speed,
-                   sound_enabled, animation_duration)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (
-                    data["time"],
-                    data.get("days", ""),
-                    data.get("sound", "default"),
-                    1 if data.get("enabled", True) else 0,
-                    data.get("label", ""),
-                    data.get("animation_shape", "border_glow"),
-                    data.get("animation_color", "#ff3333"),
-                    data.get("animation_speed", "normal"),
-                    1 if data.get("sound_enabled", True) else 0,
-                    int(data.get("animation_duration", 60)),
-                ),
-            )
-            conn.commit()
-            return jsonify({"id": cursor.lastrowid, "status": "created"}), 201
-        finally:
-            conn.close()
+        alarm = _create_alarm(data)
+        return jsonify({"id": alarm["id"], "status": "created"}), 201
 
     @bp.route("/alarms/<int:alarm_id>", methods=["PUT"])
     def update_alarm(alarm_id):
-        from src.config.settings import get_db
+        from src.config.settings import update_alarm as _update_alarm
         data = request.get_json()
         if not data:
             return jsonify({"error": "Invalid JSON body"}), 400
-        conn = get_db()
-        try:
-            conn.execute(
-                """UPDATE alarms SET time=?, days=?, sound=?, enabled=?, label=?,
-                   animation_shape=?, animation_color=?, animation_speed=?,
-                   sound_enabled=?, animation_duration=?
-                   WHERE id=?""",
-                (
-                    data.get("time", ""),
-                    data.get("days", ""),
-                    data.get("sound", "default"),
-                    1 if data.get("enabled", True) else 0,
-                    data.get("label", ""),
-                    data.get("animation_shape", "border_glow"),
-                    data.get("animation_color", "#ff3333"),
-                    data.get("animation_speed", "normal"),
-                    1 if data.get("sound_enabled", True) else 0,
-                    int(data.get("animation_duration", 60)),
-                    alarm_id,
-                ),
-            )
-            conn.commit()
-            return jsonify({"status": "ok"})
-        finally:
-            conn.close()
+        _update_alarm(alarm_id, data)
+        return jsonify({"status": "ok"})
 
     @bp.route("/alarms/<int:alarm_id>", methods=["DELETE"])
     def delete_alarm(alarm_id):
-        from src.config.settings import get_db
-        conn = get_db()
-        try:
-            conn.execute("DELETE FROM alarms WHERE id = ?", (alarm_id,))
-            conn.commit()
-            return jsonify({"status": "ok"})
-        finally:
-            conn.close()
+        from src.config.settings import delete_alarm as _delete_alarm
+        _delete_alarm(alarm_id)
+        return jsonify({"status": "ok"})
 
     # --- Uploads (images) ---
 
@@ -388,76 +332,35 @@ def create_api_blueprint():
 
     @bp.route("/agenda", methods=["GET"])
     def list_agenda():
-        from src.config.settings import get_db
-        conn = get_db()
-        try:
-            rows = conn.execute("SELECT * FROM agenda_events ORDER BY start_time").fetchall()
-            return jsonify([dict(row) for row in rows])
-        finally:
-            conn.close()
+        from src.config.settings import list_agenda_events
+        return jsonify(list_agenda_events())
 
     @bp.route("/agenda", methods=["POST"])
     def create_agenda_event():
-        from src.config.settings import get_db
+        from src.config.settings import create_agenda_event as _create_event
         data = request.get_json()
         if not data or "title" not in data or "start_time" not in data or "end_time" not in data:
             return jsonify({"error": "Missing required fields: title, start_time, end_time"}), 400
         _TIME_RE = re.compile(r'^\d{1,2}:\d{2}$')
         if not _TIME_RE.match(data["start_time"]) or not _TIME_RE.match(data["end_time"]):
             return jsonify({"error": "Invalid time format. Use HH:MM"}), 400
-        conn = get_db()
-        try:
-            cursor = conn.execute(
-                """INSERT INTO agenda_events (title, start_time, end_time, color, days)
-                   VALUES (?, ?, ?, ?, ?)""",
-                (
-                    data["title"],
-                    data["start_time"],
-                    data["end_time"],
-                    data.get("color", "#4488ff"),
-                    data.get("days", ""),
-                ),
-            )
-            conn.commit()
-            return jsonify({"id": cursor.lastrowid, "status": "created"}), 201
-        finally:
-            conn.close()
+        event = _create_event(data)
+        return jsonify({"id": event["id"], "status": "created"}), 201
 
     @bp.route("/agenda/<int:event_id>", methods=["PUT"])
     def update_agenda_event(event_id):
-        from src.config.settings import get_db
+        from src.config.settings import update_agenda_event as _update_event
         data = request.get_json()
         if not data:
             return jsonify({"error": "Invalid JSON body"}), 400
-        conn = get_db()
-        try:
-            conn.execute(
-                """UPDATE agenda_events SET title=?, start_time=?, end_time=?, color=?, days=?
-                   WHERE id=?""",
-                (
-                    data.get("title", ""),
-                    data.get("start_time", ""),
-                    data.get("end_time", ""),
-                    data.get("color", "#4488ff"),
-                    data.get("days", ""),
-                    event_id,
-                ),
-            )
-            conn.commit()
-            return jsonify({"status": "ok"})
-        finally:
-            conn.close()
+        _update_event(event_id, data)
+        return jsonify({"status": "ok"})
 
     @bp.route("/agenda/<int:event_id>", methods=["DELETE"])
     def delete_agenda_event(event_id):
-        from src.config.settings import get_db
-        conn = get_db()
-        try:
-            conn.execute("DELETE FROM agenda_events WHERE id = ?", (event_id,))
-            conn.commit()
-            return jsonify({"status": "ok"})
-        finally:
-            conn.close()
+        from src.config.settings import delete_agenda_event as _delete_event
+        _delete_event(event_id)
+        return jsonify({"status": "ok"})
 
     return bp
 
