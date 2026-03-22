@@ -1,4 +1,5 @@
 import gc
+import json
 import os
 import sys
 import time
@@ -51,6 +52,7 @@ class ClockEngine:
         self._alarms = []
         self._agenda_events = []
         self._agenda_last_load = 0
+        self._last_agenda_json = None  # cached JSON for change detection
         self._last_tz_name = None
         self._tz_transition_start = 0  # time.time() when transition began
         self._tz_old_angles = None     # {hour, minute, second} angles at start
@@ -119,7 +121,12 @@ class ClockEngine:
             if end_time and current_time_str > end_time:
                 continue
             filtered.append(ev)
-        self._agenda_events = filtered
+        # Only update when content actually changes — avoids triggering
+        # the renderer's identity-based static cache rebuild every 60s.
+        agenda_json = json.dumps(filtered, sort_keys=True)
+        if agenda_json != self._last_agenda_json:
+            self._last_agenda_json = agenda_json
+            self._agenda_events = filtered
 
     def run(self):
         """Run the clock loop. Blocks until stop() is called or window is closed."""
