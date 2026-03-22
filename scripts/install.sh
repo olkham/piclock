@@ -58,27 +58,51 @@ fi
 # --- Step 1: System dependencies ---
 echo "[1/5] Installing system dependencies..."
 apt-get update
-apt-get install -y \
-    python3 \
-    python3-venv \
-    python3-pip \
-    libcairo2-dev \
-    pkg-config \
-    python3-dev \
-    libsdl2-dev \
-    libsdl2-image-dev \
-    libsdl2-mixer-dev \
-    libsdl2-ttf-dev \
+
+SYSTEM_DEPS=(
+    python3
+    python3-venv
+    python3-pip
+    libcairo2-dev
+    pkg-config
+    python3-dev
+    libsdl2-dev
+    libsdl2-image-dev
+    libsdl2-mixer-dev
+    libsdl2-ttf-dev
     git
+)
+
+if [ "$USE_KMS" = true ]; then
+    # System pygame is built against system SDL2 which includes KMS/DRM support.
+    # The pip wheel bundles its own SDL2 without kmsdrm, so we must use the system one.
+    SYSTEM_DEPS+=(python3-pygame)
+fi
+
+apt-get install -y "${SYSTEM_DEPS[@]}"
 echo ""
 
 # --- Step 2: Virtual environment ---
 echo "[2/5] Setting up Python virtual environment..."
-sudo -u "$SERVICE_USER" python3 -m venv "$PROJECT_DIR/venv"
+
+if [ "$USE_KMS" = true ]; then
+    # --system-site-packages lets the venv see python3-pygame (which has KMS/DRM)
+    sudo -u "$SERVICE_USER" python3 -m venv --system-site-packages "$PROJECT_DIR/venv"
+else
+    sudo -u "$SERVICE_USER" python3 -m venv "$PROJECT_DIR/venv"
+fi
+
 echo "  Upgrading pip..."
 sudo -u "$SERVICE_USER" "$PROJECT_DIR/venv/bin/pip" install --upgrade pip
 echo "  Installing Python packages..."
 sudo -u "$SERVICE_USER" "$PROJECT_DIR/venv/bin/pip" install -r "$PROJECT_DIR/requirements.txt"
+
+if [ "$USE_KMS" = true ]; then
+    # requirements.txt includes pygame (the pip wheel), which would shadow the system
+    # python3-pygame that has KMS/DRM support. Remove it so the system package is used.
+    echo "  Removing pip pygame (system package with KMS/DRM will be used instead)..."
+    sudo -u "$SERVICE_USER" "$PROJECT_DIR/venv/bin/pip" uninstall pygame -y 2>/dev/null || true
+fi
 echo ""
 
 # --- Step 3: Data directories ---
@@ -147,6 +171,17 @@ fi
 
 systemctl daemon-reload
 systemctl enable piclock.service
+
+if [ "$USE_KMS" = true ]; then
+    # Switch boot target to console — this is REQUIRED for KMS/DRM.
+    # lightdm holds DRM master when running, which prevents KMS/DRM from
+    # initialising even with the correct permissions.
+    echo "  Switching boot target to multi-user (console)..."
+    systemctl set-default multi-user.target
+    # Stop lightdm now so the service start below succeeds immediately
+    systemctl stop lightdm 2>/dev/null || true
+fi
+
 systemctl start piclock.service
 
 echo ""
@@ -162,10 +197,8 @@ echo "  sudo journalctl -u piclock -f    — View logs"
 echo ""
 if [ "$USE_KMS" = true ]; then
     echo "Running in KMS/DRM mode (tear-free, no desktop required)."
-    echo "To switch to X11 mode: sudo bash $PROJECT_DIR/scripts/install.sh"
-    echo ""
-    echo "Recommended: boot to console instead of desktop to free resources:"
-    echo "  sudo raspi-config  →  System Options  →  Boot / Auto Login  →  Console Autologin"
+    echo "Boot target set to multi-user (console) — desktop will not start on next boot."
+    echo "To switch back to X11 mode: sudo bash $PROJECT_DIR/scripts/install.sh"
     echo ""
     echo "To disable unused audio services (saves ~10-15% CPU):"
     echo "  systemctl --user disable pipewire-pulse.service pipewire.service wireplumber.service"
