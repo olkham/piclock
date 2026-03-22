@@ -140,8 +140,17 @@
                             <label class="block text-xs text-slate-400 mb-1">Upload Background Image</label>
                             <input type="file" accept="image/*" @change="uploadBgImage($event)" class="text-xs text-slate-400">
                             <p class="text-xs text-slate-500 truncate max-w-full" x-show="theme.background.image" :title="theme.background.image" x-text="'Current: ' + (theme.background.image || '').split(/[\\/]/).pop()"></p>
+                            <label class="block text-xs text-slate-400 mb-1">Image Opacity: <span x-text="theme.background.image_opacity + '%'"></span></label>
+                            <input type="range" x-model.number="theme.background.image_opacity" min="0" max="100" step="5" class="w-full mb-1">
                             <label class="block text-xs text-slate-400 mb-1">Fallback Color</label>
                             <input type="color" x-model="theme.background.color" class="w-full h-8 rounded">
+                        </div>
+                    </template>
+
+                    <template x-if="theme.background.type !== 'image'">
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Background Opacity: <span x-text="theme.background.color_opacity + '%'"></span></label>
+                            <input type="range" x-model.number="theme.background.color_opacity" min="0" max="100" step="5" class="w-full">
                         </div>
                     </template>
                 </fieldset>
@@ -403,6 +412,23 @@
                     <input type="range" x-model.number="theme.clock_text.offset_y" min="-50" max="50" step="1" class="w-full">
                 </fieldset>
 
+                <!-- Date Display -->
+                <fieldset class="border border-slate-600 rounded p-3 md:col-span-2">
+                    <legend class="text-sm text-slate-400 px-1">Date Display</legend>
+                    <label class="flex items-center gap-2 text-sm mb-2">
+                        <input type="checkbox" x-model="theme.date_display.visible"> Show date
+                    </label>
+                    <label class="flex items-center gap-2 text-sm mb-2">
+                        <input type="checkbox" x-model="theme.date_display.show_day_of_week"> Show day of week
+                    </label>
+                    <label class="block text-xs text-slate-400 mb-1">Color</label>
+                    <input type="color" x-model="theme.date_display.color" class="w-full h-8 rounded mb-2">
+                    <label class="block text-xs text-slate-400 mb-1">Font Size (0=auto): <span x-text="theme.date_display.font_size"></span></label>
+                    <input type="range" x-model.number="theme.date_display.font_size" min="0" max="60" step="1" class="w-full mb-2">
+                    <label class="block text-xs text-slate-400 mb-1">Vertical Offset: <span x-text="theme.date_display.offset_y + '%'"></span></label>
+                    <input type="range" x-model.number="theme.date_display.offset_y" min="-50" max="50" step="1" class="w-full">
+                </fieldset>
+
                 <!-- Agenda -->
                 <fieldset class="border border-slate-600 rounded p-3 md:col-span-2">
                     <legend class="text-sm text-slate-400 px-1">Agenda</legend>
@@ -500,7 +526,13 @@ function themeEditor() {
             });
             if (!this.theme.alarm_indicators) this.theme.alarm_indicators = {visible:true, color:'#ffaa00', size:4};
             if (!this.theme.clock_text) this.theme.clock_text = {visible:false, format:'12h', color:'#ffffff', font_size:0, offset_y:25};
+            if (!this.theme.date_display) this.theme.date_display = {visible:false, color:'#ffffff', font_size:0, offset_y:-15, show_day_of_week:true};
+            if (this.theme.date_display.show_day_of_week == null) this.theme.date_display.show_day_of_week = true;
+            if (this.theme.date_display.offset_y == null) this.theme.date_display.offset_y = -15;
+            if (this.theme.date_display.font_size == null) this.theme.date_display.font_size = 0;
             if (!this.theme.agenda) this.theme.agenda = {enabled:false, min_radius:0, max_radius:80, opacity:35, show_current_event:false};
+            if (this.theme.background.image_opacity == null) this.theme.background.image_opacity = 100;
+            if (this.theme.background.color_opacity == null) this.theme.background.color_opacity = 100;
             if (this.theme.agenda.show_current_event == null) this.theme.agenda.show_current_event = false;
 
             this.$nextTick(() => {

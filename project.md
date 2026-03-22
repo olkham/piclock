@@ -35,9 +35,11 @@ Features:
     - Solid color
     - Gradient: radial or linear with configurable angle and multi-stop color support
     - Image: upload a PNG/JPG background
+    - Background opacity: separate image_opacity and color_opacity controls (0-100%)
   - Alarm indicators on clock face (dots/triangles at alarm-time positions, toggle + color + size)
   - Center dot configuration (toggle, color, radius)
   - Theme export (download JSON) and import (upload JSON file)
+  - Date display on clock face (configurable font size, color, position, day-of-week toggle)
 - Alarm system
   - Per-alarm animation style: ring, flash, border_glow
   - Per-alarm animation color and speed (slow, normal, fast)
@@ -57,7 +59,7 @@ Features:
 - Timezone selector
   - Searchable dropdown showing city names with GMT±HH:MM offsets
   - Filters via `/api/timezones?q=` search query
-  - Smooth animated transition when changing timezone (1s easing)
+  - Smooth animated transition when changing timezone (1s easing, per-hand independent shortest path)
 
 Tech Stack:
 - Python 3.11 — PyCairo vector rendering, Pygame display, Flask web server, SQLite storage

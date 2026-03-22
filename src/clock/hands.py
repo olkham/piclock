@@ -16,20 +16,24 @@ def _get_start_end(cfg, default_start, default_end):
     return -tail, length
 
 
-def draw_hands(ctx, size, time_info, theme):
+def draw_hands(ctx, size, time_info, theme, hand_angles=None):
     """Draw all clock hands."""
     center = size / 2
     hands = theme.get("hands", {})
 
-    hour = time_info["hour"] % 12
-    minute = time_info["minute"]
-    second = time_info["second"]
-    microsecond = time_info.get("microsecond", 0)
+    if hand_angles:
+        hour_angle = hand_angles["hour"]
+        minute_angle = hand_angles["minute"]
+        second_angle = hand_angles["second"]
+    else:
+        hour = time_info["hour"] % 12
+        minute = time_info["minute"]
+        second = time_info["second"]
+        microsecond = time_info.get("microsecond", 0)
 
-    # Smooth angles
-    hour_angle = (hour + minute / 60) * 30 - 90
-    minute_angle = (minute + second / 60) * 6 - 90
-    second_angle = (second + microsecond / 1_000_000) * 6 - 90
+        hour_angle = (hour + minute / 60) * 30 - 90
+        minute_angle = (minute + second / 60) * 6 - 90
+        second_angle = (second + microsecond / 1_000_000) * 6 - 90
 
     # Hour hand
     hour_cfg = hands.get("hour", {})

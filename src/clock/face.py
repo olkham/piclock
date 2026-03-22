@@ -48,6 +48,8 @@ def draw_background(ctx, size, theme):
     bg_type = bg.get("type", "solid")
     center = size / 2
     radius = size / 2
+    color_opacity = bg.get("color_opacity", 100) / 100
+    image_opacity = bg.get("image_opacity", 100) / 100
 
     if bg_type == "gradient":
         grad_type = bg.get("gradient_type", "radial")
@@ -72,14 +74,21 @@ def draw_background(ctx, size, theme):
         if color_stops:
             for stop in color_stops:
                 r, g, b = _hex_to_rgb(stop.get("color", "#000000"))
-                pattern.add_color_stop_rgb(stop.get("position", 0), r, g, b)
+                pattern.add_color_stop_rgba(stop.get("position", 0), r, g, b, color_opacity)
         else:
             for i, color_hex in enumerate(colors):
                 r, g, b = _hex_to_rgb(color_hex)
-                pattern.add_color_stop_rgb(i / max(len(colors) - 1, 1), r, g, b)
+                pattern.add_color_stop_rgba(i / max(len(colors) - 1, 1), r, g, b, color_opacity)
 
         ctx.set_source(pattern)
     elif bg_type == "image":
+        # Draw fallback color first (always opaque base)
+        color = bg.get("color", "#1a1a2e")
+        r, g, b = _hex_to_rgb(color)
+        ctx.set_source_rgb(r, g, b)
+        ctx.rectangle(0, 0, size, size)
+        ctx.fill()
+        # Draw image on top with image_opacity
         image_path = bg.get("image", "")
         if image_path and os.path.isfile(image_path):
             try:
@@ -89,18 +98,15 @@ def draw_background(ctx, size, theme):
                 ctx.save()
                 ctx.scale(scale, scale)
                 ctx.set_source_surface(img, 0, 0)
-                ctx.paint()
+                ctx.paint_with_alpha(image_opacity)
                 ctx.restore()
-                return
             except Exception:
                 pass
-        color = bg.get("color", "#1a1a2e")
-        r, g, b = _hex_to_rgb(color)
-        ctx.set_source_rgb(r, g, b)
+        return
     else:
         color = bg.get("color", "#1a1a2e")
         r, g, b = _hex_to_rgb(color)
-        ctx.set_source_rgb(r, g, b)
+        ctx.set_source_rgba(r, g, b, color_opacity)
 
     ctx.rectangle(0, 0, size, size)
     ctx.fill()
@@ -589,6 +595,45 @@ def draw_current_event(ctx, size, time_info, theme, agenda_events):
     ctx.set_source_rgb(r, g, b)
     ctx.move_to(x, y)
     ctx.show_text(display_title)
+
+
+def draw_date_display(ctx, size, time_info, theme):
+    """Draw the date display on the clock face."""
+    cfg = theme.get("date_display", {})
+    if not cfg.get("visible", False):
+        return
+
+    center = size / 2
+    radius = size / 2
+
+    # Build date string
+    from datetime import date
+    today = date.today()
+    if cfg.get("show_day_of_week", True):
+        text = today.strftime("%a %b %d")
+    else:
+        text = today.strftime("%b %d")
+
+    color = cfg.get("color", "#ffffff")
+    r, g, b = _hex_to_rgb(color)
+    font_size = cfg.get("font_size", 0)
+    if font_size <= 0:
+        font_size = radius * 0.08
+    offset_y = cfg.get("offset_y", -15) / 100 * radius
+
+    ctx.select_font_face(_SANS_FONT, cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+    ctx.set_font_size(font_size)
+    extents = ctx.text_extents(text)
+    x = center - extents.width / 2
+    y = center + offset_y + extents.height / 2
+
+    ctx.set_source_rgba(0, 0, 0, 0.4)
+    ctx.move_to(x + 1, y + 1)
+    ctx.show_text(text)
+
+    ctx.set_source_rgb(r, g, b)
+    ctx.move_to(x, y)
+    ctx.show_text(text)
 
 
 def _hex_to_rgb(hex_color):

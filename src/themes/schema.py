@@ -13,6 +13,8 @@ THEME_SCHEMA = {
         "gradient_radius": (int, float),    # 0-1, radius fraction for radial (default 1.0)
         "color_stops": list,   # list of {"color": hex, "position": 0-1} for fine control
         "image": str,      # path for image background
+        "image_opacity": (int, float),  # 0-100, opacity for background image
+        "color_opacity": (int, float),  # 0-100, opacity for background color/gradient
     },
     "markers": {
         "hour_style": str,       # "line", "dot", "none"
@@ -98,6 +100,13 @@ THEME_SCHEMA = {
         "font_size": (int, float),   # 0 = auto
         "offset_y": (int, float),    # % of radius, positive = below center
     },
+    "date_display": {
+        "visible": bool,
+        "color": str,
+        "font_size": (int, float),   # 0 = auto
+        "offset_y": (int, float),    # % of radius, positive = below center
+        "show_day_of_week": bool,
+    },
     "agenda": {
         "enabled": bool,
         "min_radius": (int, float),  # % of clock radius for inner edge
@@ -121,6 +130,8 @@ DEFAULT_THEME = {
         "gradient_radius": 1.0,
         "color_stops": [],
         "image": "",
+        "image_opacity": 100,    # 0-100, opacity for background image
+        "color_opacity": 100,    # 0-100, opacity for background color/gradient
     },
     "markers": {
         "hour_style": "none",
@@ -199,6 +210,13 @@ DEFAULT_THEME = {
         "color": "#ffffff",
         "font_size": 0,
         "offset_y": 25,
+    },
+    "date_display": {
+        "visible": False,
+        "color": "#ffffff",
+        "font_size": 0,
+        "offset_y": -15,
+        "show_day_of_week": True,
     },
     "agenda": {
         "enabled": False,

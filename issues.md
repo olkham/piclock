@@ -1,4 +1,0 @@
-- add option to show date in the center of the clock, with configurable font size, color, position radius, and toggle for day of week
-- set opacity of background image and background color
-
-- currently when chaning the timezone, the clock spins rapidly to the new time. Add a smooth animated transition (1s ease) where the hands move independently to their new positions. rather than spinning the second and minute hands together rapidly, they should take 1 second to smoothly transition to the new time, easing out at the end. This will be a more visually appealing way to handle timezone changes, rather than a jarring jump or rapid spin. The hour hand should also move smoothly to its new position based on the new time. Each hand can rotate forwards or backwards to the new position, taking the shortest path. During the transition, the clock should still show a valid time (interpolating between old and new) rather than freezing or showing an invalid time.

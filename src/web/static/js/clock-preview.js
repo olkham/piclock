@@ -11,28 +11,26 @@ let _previewTimezone = null; // IANA timezone string (e.g. "America/New_York")
 let _bgImageCache = {};    // cache loaded background images by URL
 let _agendaEvents = [];    // cached agenda events for pie chart
 let _tzTransitionStart = 0;     // performance.now() when tz transition began
-let _tzTransitionOffset = 0;    // seconds offset (old - new) to animate away
+let _tzOldAngles = null;        // {hour, minute, second} angles at start of transition
 const _TZ_TRANSITION_DURATION = 1000; // ms
 
 function _easeInOut(t) {
     return 0.5 - 0.5 * Math.cos(Math.PI * t);
 }
 
-function _timeToSeconds(h, m, s, ms) {
-    return h * 3600 + m * 60 + s + (ms || 0) / 1000;
+function _computeHandAngles(h, m, s, ms) {
+    return {
+        hour: (h % 12 + m / 60) * 30 - 90,
+        minute: (m + s / 60) * 6 - 90,
+        second: (s + (ms || 0) / 1000) * 6 - 90,
+    };
 }
 
-function _secondsToDate(totalSecs) {
-    totalSecs = ((totalSecs % 86400) + 86400) % 86400;
-    const h = Math.floor(totalSecs / 3600);
-    const rem = totalSecs - h * 3600;
-    const min = Math.floor(rem / 60);
-    const secFrac = rem - min * 60;
-    const s = Math.floor(secFrac);
-    const ms = Math.round((secFrac - s) * 1000);
-    const d = new Date();
-    d.setHours(h, min, s, ms);
-    return d;
+function _shortestAngleDelta(from, to) {
+    let delta = (to - from) % 360;
+    if (delta > 180) delta -= 360;
+    else if (delta < -180) delta += 360;
+    return delta;
 }
 
 function startClockPreview(canvasId, theme, timezone) {
@@ -45,16 +43,10 @@ function startClockPreview(canvasId, theme, timezone) {
         try {
             const now = new Date();
             const oldParts = _tzParts(now, _previewTimezone);
-            const newParts = _tzParts(now, timezone);
-            const oldSecs = _timeToSeconds(oldParts.hour, oldParts.minute, oldParts.second);
-            const newSecs = _timeToSeconds(newParts.hour, newParts.minute, newParts.second);
-            let offset = oldSecs - newSecs;
-            if (offset > 43200) offset -= 86400;
-            else if (offset < -43200) offset += 86400;
-            _tzTransitionOffset = offset;
+            _tzOldAngles = _computeHandAngles(oldParts.hour, oldParts.minute, oldParts.second, 0);
             _tzTransitionStart = performance.now();
         } catch (e) {
-            _tzTransitionOffset = 0;
+            _tzOldAngles = null;
         }
     }
     _previewTimezone = timezone || null;
@@ -72,7 +64,7 @@ function startClockPreview(canvasId, theme, timezone) {
     let lastSec = -1;
     function tick() {
         const now = _getPreviewTime();
-        const transitioning = _tzTransitionOffset !== 0 &&
+        const transitioning = _tzOldAngles !== null &&
             (performance.now() - _tzTransitionStart < _TZ_TRANSITION_DURATION);
         if (transitioning || now.getSeconds() !== lastSec) {
             lastSec = now.getSeconds();
@@ -104,20 +96,6 @@ function _getPreviewTime() {
     } else {
         now = new Date();
     }
-
-    // Apply timezone transition animation
-    if (_tzTransitionOffset !== 0) {
-        const elapsed = performance.now() - _tzTransitionStart;
-        if (elapsed < _TZ_TRANSITION_DURATION) {
-            const progress = _easeInOut(elapsed / _TZ_TRANSITION_DURATION);
-            const remainingOffset = _tzTransitionOffset * (1.0 - progress);
-            const currentSecs = _timeToSeconds(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
-            now = _secondsToDate(currentSecs + remainingOffset);
-        } else {
-            _tzTransitionOffset = 0;
-        }
-    }
-
     return now;
 }
 
@@ -194,9 +172,14 @@ function buildStaticLayer(size, center, radius, theme) {
 
 function drawBackground(ctx, size, center, radius, theme) {
     const bg = theme.background || {};
+    const colorOpacity = (bg.color_opacity != null ? bg.color_opacity : 100) / 100;
+    const imageOpacity = (bg.image_opacity != null ? bg.image_opacity : 100) / 100;
 
     if (bg.type === 'image' && bg.image) {
-        // Derive the web URL from the filesystem path
+        // Draw fallback color first
+        ctx.fillStyle = hexToCSS(bg.color || '#1a1a2e');
+        ctx.fillRect(0, 0, size, size);
+
         const filename = bg.image.replace(/\\/g, '/').split('/').pop();
         const url = '/api/uploads/' + filename;
 
@@ -206,6 +189,7 @@ function drawBackground(ctx, size, center, radius, theme) {
             const dx = (size - img.naturalWidth * scale) / 2;
             const dy = (size - img.naturalHeight * scale) / 2;
             ctx.save();
+            ctx.globalAlpha = imageOpacity;
             ctx.translate(dx, dy);
             ctx.scale(scale, scale);
             ctx.drawImage(img, 0, 0);
@@ -213,21 +197,13 @@ function drawBackground(ctx, size, center, radius, theme) {
             return;
         }
 
-        // Start loading if not cached
         if (!_bgImageCache[url]) {
             const img = new window.Image();
             img.crossOrigin = 'anonymous';
-            img.onload = () => {
-                // Invalidate cache to force redraw with image
-                _cachedThemeJSON = '';
-            };
+            img.onload = () => { _cachedThemeJSON = ''; };
             img.src = url;
             _bgImageCache[url] = img;
         }
-
-        // Fallback color while loading
-        ctx.fillStyle = hexToCSS(bg.color || '#1a1a2e');
-        ctx.fillRect(0, 0, size, size);
         return;
     }
 
@@ -256,11 +232,19 @@ function drawBackground(ctx, size, center, radius, theme) {
                 grad.addColorStop(i / (bg.colors.length - 1), hexToCSS(c));
             });
         }
+        ctx.save();
+        ctx.globalAlpha = colorOpacity;
         ctx.fillStyle = grad;
-    } else {
-        ctx.fillStyle = hexToCSS(bg.color || '#1a1a2e');
+        ctx.fillRect(0, 0, size, size);
+        ctx.restore();
+        return;
     }
+
+    ctx.save();
+    ctx.globalAlpha = colorOpacity;
+    ctx.fillStyle = hexToCSS(bg.color || '#1a1a2e');
     ctx.fillRect(0, 0, size, size);
+    ctx.restore();
 }
 
 /* ── markers ─────────────────────────────────────────── */
@@ -478,9 +462,27 @@ function drawHands(ctx, center, radius, time, theme) {
     const second = time.second;
     const ms = time.ms || 0;
 
-    const hourAngle = (hour + minute / 60) * 30 - 90;
-    const minuteAngle = (minute + second / 60) * 6 - 90;
-    const secondAngle = (second + ms / 1000) * 6 - 90;
+    let hourAngle = (hour + minute / 60) * 30 - 90;
+    let minuteAngle = (minute + second / 60) * 6 - 90;
+    let secondAngle = (second + ms / 1000) * 6 - 90;
+
+    // Per-hand timezone transition (independent shortest path)
+    if (_tzOldAngles !== null) {
+        const elapsed = performance.now() - _tzTransitionStart;
+        if (elapsed < _TZ_TRANSITION_DURATION) {
+            const progress = _easeInOut(elapsed / _TZ_TRANSITION_DURATION);
+            const newAngles = { hour: hourAngle, minute: minuteAngle, second: secondAngle };
+            for (const key of ['hour', 'minute', 'second']) {
+                const delta = _shortestAngleDelta(_tzOldAngles[key], newAngles[key]);
+                const interpolated = _tzOldAngles[key] + delta * progress;
+                if (key === 'hour') hourAngle = interpolated;
+                else if (key === 'minute') minuteAngle = interpolated;
+                else secondAngle = interpolated;
+            }
+        } else {
+            _tzOldAngles = null;
+        }
+    }
 
     // Hour hand
     const hCfg = hands.hour || {};
@@ -544,6 +546,38 @@ function drawHands(ctx, center, radius, time, theme) {
 
     // Current agenda event title
     drawCurrentEvent(ctx, center, radius, time, theme);
+
+    // Date display
+    drawDateDisplay(ctx, center, radius, theme);
+}
+
+function drawDateDisplay(ctx, center, radius, theme) {
+    const cfg = theme.date_display || {};
+    if (!cfg.visible) return;
+
+    const now = new Date();
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    let text;
+    if (cfg.show_day_of_week !== false) {
+        text = days[now.getDay()] + ' ' + months[now.getMonth()] + ' ' + now.getDate();
+    } else {
+        text = months[now.getMonth()] + ' ' + now.getDate();
+    }
+
+    const color = hexToCSS(cfg.color || '#ffffff');
+    const scale = radius / 360;
+    const fs = (cfg.font_size && cfg.font_size > 0) ? cfg.font_size * scale : radius * 0.08;
+    const offsetY = (cfg.offset_y != null ? cfg.offset_y : -15) / 100 * radius;
+
+    ctx.font = `${fs}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.fillText(text, center + 1, center + offsetY + 1);
+    ctx.fillStyle = color;
+    ctx.fillText(text, center, center + offsetY);
 }
 
 function drawCurrentEvent(ctx, center, radius, time, theme) {

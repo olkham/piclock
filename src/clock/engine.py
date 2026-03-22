@@ -27,28 +27,24 @@ def _ease_in_out(t):
     return 0.5 - 0.5 * math.cos(math.pi * t)
 
 
-def _time_to_seconds(hour, minute, second, microsecond=0):
-    """Convert time components to total seconds since midnight."""
-    return hour * 3600 + minute * 60 + second + microsecond / 1_000_000
+def _compute_hand_angles(time_info):
+    """Compute hand angles (degrees) from time_info."""
+    hour = time_info["hour"] % 12
+    minute = time_info["minute"]
+    second = time_info["second"]
+    microsecond = time_info.get("microsecond", 0)
+    hour_angle = (hour + minute / 60) * 30 - 90
+    minute_angle = (minute + second / 60) * 6 - 90
+    second_angle = (second + microsecond / 1_000_000) * 6 - 90
+    return {"hour": hour_angle, "minute": minute_angle, "second": second_angle}
 
 
-def _seconds_to_time_info(total_secs):
-    """Convert total seconds to time_info dict, wrapping at 24h."""
-    total_secs = total_secs % 86400
-    if total_secs < 0:
-        total_secs += 86400
-    hour = int(total_secs // 3600)
-    remainder = total_secs - hour * 3600
-    minute = int(remainder // 60)
-    sec_frac = remainder - minute * 60
-    second = int(sec_frac)
-    microsecond = int((sec_frac - second) * 1_000_000)
-    return {
-        "hour": hour,
-        "minute": minute,
-        "second": second,
-        "microsecond": microsecond,
-    }
+def _shortest_angle_delta(from_deg, to_deg):
+    """Find shortest rotation delta between two angles in degrees."""
+    delta = (to_deg - from_deg) % 360
+    if delta > 180:
+        delta -= 360
+    return delta
 
 
 class ClockEngine:
@@ -67,7 +63,8 @@ class ClockEngine:
         self._is_pi_zero = _is_pi_zero()
         self._last_tz_name = None
         self._tz_transition_start = 0  # time.time() when transition began
-        self._tz_transition_offset = 0  # seconds offset to animate away
+        self._tz_old_angles = None     # {hour, minute, second} angles at start
+        self._tz_new_time_info = None  # time_info snapshot at transition start
         self._TZ_TRANSITION_DURATION = 1.0  # seconds
 
     def set_alarm_callback(self, callback):
@@ -148,36 +145,33 @@ class ClockEngine:
                 try:
                     old_tz = ZoneInfo(self._last_tz_name)
                     old_now = datetime.now(old_tz)
-                    old_secs = _time_to_seconds(old_now.hour, old_now.minute, old_now.second, old_now.microsecond)
-                    new_secs = _time_to_seconds(now.hour, now.minute, now.second, now.microsecond)
-                    # Offset is old - new (we start at old and animate to new)
-                    offset = old_secs - new_secs
-                    # Take shortest path (wrap around 12h for visual, but use 24h math)
-                    if offset > 43200:
-                        offset -= 86400
-                    elif offset < -43200:
-                        offset += 86400
-                    self._tz_transition_offset = offset
+                    old_time_info = {
+                        "hour": old_now.hour,
+                        "minute": old_now.minute,
+                        "second": old_now.second,
+                        "microsecond": old_now.microsecond,
+                    }
+                    self._tz_old_angles = _compute_hand_angles(old_time_info)
                     self._tz_transition_start = time.time()
                 except Exception:
-                    self._tz_transition_offset = 0
+                    self._tz_old_angles = None
             self._last_tz_name = tz_name
 
-            # Apply timezone transition animation
+            # Apply timezone transition animation (per-hand independent shortest path)
             tz_transitioning = False
-            if self._tz_transition_offset != 0:
+            hand_angles = None
+            if self._tz_old_angles is not None:
                 elapsed = time.time() - self._tz_transition_start
                 if elapsed < self._TZ_TRANSITION_DURATION:
                     tz_transitioning = True
                     progress = _ease_in_out(elapsed / self._TZ_TRANSITION_DURATION)
-                    remaining_offset = self._tz_transition_offset * (1.0 - progress)
-                    current_secs = _time_to_seconds(
-                        time_info["hour"], time_info["minute"],
-                        time_info["second"], time_info["microsecond"]
-                    )
-                    time_info = _seconds_to_time_info(current_secs + remaining_offset)
+                    new_angles = _compute_hand_angles(time_info)
+                    hand_angles = {}
+                    for key in ("hour", "minute", "second"):
+                        delta = _shortest_angle_delta(self._tz_old_angles[key], new_angles[key])
+                        hand_angles[key] = self._tz_old_angles[key] + delta * progress
                 else:
-                    self._tz_transition_offset = 0
+                    self._tz_old_angles = None
 
             # Get active theme
             theme = self._theme_manager.get_active_theme()
@@ -197,6 +191,7 @@ class ClockEngine:
                 overlay_fn=self._overlay_fn,
                 alarms=self._alarms,
                 agenda_events=self._agenda_events,
+                hand_angles=hand_angles,
             )
 
             # Show frame
