@@ -21,6 +21,7 @@ class ThemeManager:
     def __init__(self, settings):
         self._settings = settings
         self._cache = {}
+        self._mtimes = {}  # path → last known mtime
         self._load_defaults()
 
     def _load_defaults(self):
@@ -34,13 +35,38 @@ class ThemeManager:
                         theme = json.load(f)
                     theme = merge_with_defaults(theme)
                     self._cache[theme["name"]] = theme
-                except (json.JSONDecodeError, KeyError):
+                    self._mtimes[path] = os.path.getmtime(path)
+                except (json.JSONDecodeError, KeyError, OSError):
                     continue
 
         # Ensure at least the built-in default exists
         if DEFAULT_THEME["name"] not in self._cache:
             self._cache[DEFAULT_THEME["name"]] = DEFAULT_THEME
             self._save_to_file(DEFAULT_THEME)
+
+    def _refresh_from_disk(self):
+        """Reload any theme files that have changed on disk (cross-process sync)."""
+        try:
+            filenames = os.listdir(_THEMES_DIR)
+        except OSError:
+            return
+        for filename in filenames:
+            if not filename.endswith(".json"):
+                continue
+            path = os.path.join(_THEMES_DIR, filename)
+            try:
+                mtime = os.path.getmtime(path)
+            except OSError:
+                continue
+            if mtime != self._mtimes.get(path):
+                try:
+                    with open(path, "r") as f:
+                        theme = json.load(f)
+                    theme = merge_with_defaults(theme)
+                    self._cache[theme["name"]] = theme
+                    self._mtimes[path] = mtime
+                except (json.JSONDecodeError, KeyError, OSError):
+                    continue
 
     def _save_to_file(self, theme):
         """Write theme JSON to data/themes/{name}.json."""
@@ -49,6 +75,10 @@ class ThemeManager:
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(theme, f, indent=2)
         os.replace(tmp, path)
+        try:
+            self._mtimes[path] = os.path.getmtime(path)
+        except OSError:
+            pass
 
     def list_themes(self):
         """Return a list of all theme names."""
@@ -59,7 +89,8 @@ class ThemeManager:
         return self._cache.get(name)
 
     def get_active_theme(self):
-        """Get the currently active theme."""
+        """Get the currently active theme (reloads from disk if changed)."""
+        self._refresh_from_disk()
         active_name = self._settings.get("active_theme", DEFAULT_THEME["name"])
         theme = self.get_theme(active_name)
         return theme if theme else DEFAULT_THEME
