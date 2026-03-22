@@ -303,36 +303,34 @@ def create_api_blueprint():
 
         return jsonify({"status": "ok"})
 
-    # --- Alarm control (snooze/dismiss) ---
+    # --- Alarm control (snooze/dismiss via file-based IPC) ---
 
     @bp.route("/alarms/active", methods=["GET"])
     def alarm_active():
-        scheduler = getattr(current_app, "alarm_scheduler", None)
-        if not scheduler:
-            return jsonify({"active": False})
-        info = scheduler.get_active_alarm_info()
-        return jsonify({"active": info is not None, "alarm": info})
+        from src.alarms.ipc import read_alarm_state
+        state = read_alarm_state()
+        return jsonify(state)
 
     @bp.route("/alarms/snooze", methods=["POST"])
     def snooze_alarm():
-        scheduler = getattr(current_app, "alarm_scheduler", None)
-        if not scheduler:
-            return jsonify({"error": "Scheduler not available"}), 503
+        from src.alarms.ipc import write_alarm_command, read_alarm_state
+        state = read_alarm_state()
+        if not state.get("active"):
+            return jsonify({"error": "No active alarm"}), 404
         data = request.get_json() or {}
         delay = int(data.get("delay", 300))
         delay = max(60, min(delay, 1800))
-        if scheduler.snooze(delay):
-            return jsonify({"status": "snoozed", "delay": delay})
-        return jsonify({"error": "No active alarm"}), 404
+        write_alarm_command("snooze", delay=delay)
+        return jsonify({"status": "snoozed", "delay": delay})
 
     @bp.route("/alarms/dismiss", methods=["POST"])
     def dismiss_alarm():
-        scheduler = getattr(current_app, "alarm_scheduler", None)
-        if not scheduler:
-            return jsonify({"error": "Scheduler not available"}), 503
-        if scheduler.dismiss():
-            return jsonify({"status": "dismissed"})
-        return jsonify({"error": "No active alarm"}), 404
+        from src.alarms.ipc import write_alarm_command, read_alarm_state
+        state = read_alarm_state()
+        if not state.get("active"):
+            return jsonify({"error": "No active alarm"}), 404
+        write_alarm_command("dismiss")
+        return jsonify({"status": "dismissed"})
 
     # --- Agenda Events ---
 

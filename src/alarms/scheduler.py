@@ -4,6 +4,8 @@ import threading
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+from src.alarms.ipc import read_alarm_command, write_alarm_state
+
 
 class AlarmScheduler:
     """Periodically checks if any alarm should fire."""
@@ -12,10 +14,13 @@ class AlarmScheduler:
         self._settings = settings
         self._engine = engine
         self._timer = None
+        self._cmd_timer = None
         self._running = False
         self._active_alarm = None
         self._dismiss_timer = None
         self._lock = threading.Lock()
+        # Write initial state so Flask always has a valid file
+        write_alarm_state(None)
 
     def start(self):
         self._running = True
@@ -25,6 +30,8 @@ class AlarmScheduler:
         self._running = False
         if self._timer:
             self._timer.cancel()
+        if self._cmd_timer:
+            self._cmd_timer.cancel()
         self._stop_alarm()
 
     def _schedule_check(self):
@@ -70,6 +77,16 @@ class AlarmScheduler:
                 return  # Already ringing
 
             self._active_alarm = alarm
+
+        # Publish active alarm state for Flask subprocess
+        write_alarm_state({
+            "id": alarm.get("id"),
+            "label": alarm.get("label", "Alarm"),
+            "time": alarm.get("time", ""),
+        })
+
+        # Start fast command polling (1 second) while alarm is active
+        self._start_command_polling()
 
         # Audio (only if sound is enabled for this alarm)
         sound_enabled = alarm.get("sound_enabled", 1)
@@ -135,6 +152,40 @@ class AlarmScheduler:
             if self._dismiss_timer:
                 self._dismiss_timer.cancel()
                 self._dismiss_timer = None
+        # Stop fast command polling
+        if self._cmd_timer:
+            self._cmd_timer.cancel()
+            self._cmd_timer = None
+        # Publish cleared state for Flask subprocess
+        write_alarm_state(None)
         self._engine.set_overlay(None)
         from src.alarms.audio import stop_alarm_sound
         stop_alarm_sound()
+
+    # --- File-based command polling (for Flask subprocess IPC) ---
+
+    def _start_command_polling(self):
+        """Start polling for alarm commands every 1 second."""
+        if self._cmd_timer:
+            self._cmd_timer.cancel()
+        self._poll_commands()
+
+    def _poll_commands(self):
+        """Check for pending alarm commands from Flask subprocess."""
+        if not self._running:
+            return
+        cmd = read_alarm_command()
+        if cmd:
+            action = cmd.get("cmd")
+            if action == "snooze":
+                delay = int(cmd.get("delay", 300))
+                self.snooze(delay)
+                return  # snooze stops alarm → stops polling
+            elif action == "dismiss":
+                self.dismiss()
+                return  # dismiss stops alarm → stops polling
+        # Continue polling while alarm is still active
+        if self._active_alarm:
+            self._cmd_timer = threading.Timer(1, self._poll_commands)
+            self._cmd_timer.daemon = True
+            self._cmd_timer.start()

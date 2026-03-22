@@ -1,8 +1,8 @@
 import gc
+import os
+import sys
 import time
 import math
-import platform
-import signal
 import threading
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -66,6 +66,8 @@ class ClockEngine:
         self._cfg_theme = None
         # Reusable dict avoids per-frame dict allocation
         self._time_info = {"hour": 0, "minute": 0, "second": 0, "microsecond": 0}
+        # Frame timing diagnostics (enabled via --debug-fps)
+        self.debug_fps = False
 
     def set_alarm_callback(self, callback):
         """Set a callback that returns overlay draw info when an alarm is active."""
@@ -118,6 +120,30 @@ class ClockEngine:
         self._running = True
         next_frame = time.monotonic()
 
+        # --- Thread priority & isolation for stutter-free smooth second hand ---
+
+        # 1. Increase GIL switch interval: default 5ms lets Flask/Scheduler
+        #    steal CPU mid-frame. At 30fps (33ms budget) a 5ms GIL switch is
+        #    15% of frame time. Setting to 100ms means background threads only
+        #    get the GIL when we explicitly release it (sleep/IO).
+        old_switch_interval = sys.getswitchinterval()
+        sys.setswitchinterval(0.1)
+
+        # 2. Pin render loop to core 0 (Linux only). Background threads
+        #    (Flask, scheduler) will migrate to cores 1-3, eliminating
+        #    L1 cache thrashing and OS scheduling jitter on our core.
+        try:
+            os.sched_setaffinity(0, {0})
+        except (OSError, AttributeError):
+            pass  # Not available on Windows/macOS
+
+        # 3. Request real-time scheduling (SCHED_RR) for predictable frame
+        #    timing. Requires CAP_SYS_NICE or root. Falls back silently.
+        try:
+            os.sched_setscheduler(0, os.SCHED_RR, os.sched_param(1))
+        except (OSError, AttributeError, PermissionError):
+            pass
+
         # Disable automatic GC — we'll collect manually during frame slack
         # to prevent unpredictable pauses that cause second hand stutter.
         gc.disable()
@@ -126,10 +152,22 @@ class ClockEngine:
             self._run_loop(next_frame)
         finally:
             gc.enable()
+            sys.setswitchinterval(old_switch_interval)
+            # Restore default affinity
+            try:
+                os.sched_setaffinity(0, set(range(os.cpu_count() or 4)))
+            except (OSError, AttributeError):
+                pass
 
     def _run_loop(self, next_frame):
         """Inner render loop, separated for clean GC try/finally."""
         time_info = self._time_info
+
+        # Frame timing diagnostics
+        _debug = self.debug_fps
+        if _debug:
+            _frame_times = []
+            _last_report = time.monotonic()
 
         while self._running:
             # Handle Pygame events
@@ -202,6 +240,9 @@ class ClockEngine:
             self._maybe_reload_agenda(now)
 
             # Render frame (with optional alarm overlay + alarm indicators)
+            if _debug:
+                _t0 = time.monotonic()
+
             rgb_buf = render_frame(
                 time_info, theme,
                 overlay_fn=self._overlay_fn,
@@ -212,6 +253,20 @@ class ClockEngine:
 
             # Show frame (direct buffer path — no intermediate Pygame surface)
             show_frame_from_buffer(rgb_buf)
+
+            if _debug:
+                _frame_times.append(time.monotonic() - _t0)
+                _now_dbg = time.monotonic()
+                if _now_dbg - _last_report >= 5.0:
+                    import statistics
+                    n = len(_frame_times)
+                    avg = statistics.mean(_frame_times) * 1000
+                    mx = max(_frame_times) * 1000
+                    p95 = sorted(_frame_times)[int(n * 0.95)] * 1000 if n > 1 else avg
+                    print(f"[FPS] {n / 5:.1f} fps | avg {avg:.1f}ms "
+                          f"| p95 {p95:.1f}ms | max {mx:.1f}ms", flush=True)
+                    _frame_times.clear()
+                    _last_report = _now_dbg
 
             # Dynamic FPS using cached render settings (no per-frame I/O)
             if self._alarm_active or tz_transitioning:

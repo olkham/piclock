@@ -146,9 +146,8 @@ def render_frame(time_info, theme, overlay_fn=None, alarms=None, agenda_events=N
 
     _frame_surface.flush()
 
-    # Convert Cairo BGRA → Pygame RGB via shared buffer (zero allocation)
-    _conv_arr[:, :, 0] = _src_arr[:, :, 2]  # R ← B
-    _conv_arr[:, :, 1] = _src_arr[:, :, 1]  # G
-    _conv_arr[:, :, 2] = _src_arr[:, :, 0]  # B ← R
+    # Convert Cairo BGRA → Pygame RGB via shared buffer (zero allocation).
+    # Single slice reversal [2,1,0] is faster than three channel assignments.
+    _conv_arr[:] = _src_arr[:, :, 2::-1]
     # _conv_arr writes directly into _conv_buf — no copy needed
     return _conv_buf
