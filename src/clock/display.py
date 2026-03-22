@@ -1,7 +1,13 @@
+import os
 import sys
 import platform
 
 import pygame
+
+# Prevent SDL2 from bypassing the display compositor in fullscreen mode.
+# Without this, fullscreen Pygame windows bypass the compositor's vsync,
+# causing visible tearing (top ~5% of screen 1 frame behind the rest).
+os.environ.setdefault('SDL_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR', '0')
 
 
 DISPLAY_SIZE = 720

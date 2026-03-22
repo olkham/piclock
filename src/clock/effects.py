@@ -19,20 +19,6 @@ def draw_shadow(ctx, draw_fn, offset_x=3, offset_y=3, blur_alpha=0.3):
     ctx.restore()
 
 
-def apply_circular_mask(ctx, size):
-    """Mask the rendered frame to a circle for the round display."""
-    center = size / 2
-    radius = size / 2
-
-    # Draw everything outside the circle as black
-    ctx.set_source_rgb(0, 0, 0)
-    ctx.rectangle(0, 0, size, size)
-    ctx.arc(center, center, radius, 0, 2 * math.pi)
-    ctx.set_fill_rule(cairo.FILL_RULE_EVEN_ODD)
-    ctx.fill()
-    ctx.set_fill_rule(cairo.FILL_RULE_WINDING)
-
-
 def draw_glow(ctx, x, y, radius, color_hex, intensity=0.5):
     """Draw a soft glow effect at a point."""
     r, g, b = _hex_to_rgb(color_hex)
