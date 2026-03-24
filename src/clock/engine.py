@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 
 import pygame
 
+from src.alarms.ipc import check_nudge
 from src.clock.renderer import render_frame
 from src.clock.display import show_frame_from_buffer
 
@@ -194,6 +195,11 @@ class ClockEngine:
 
             if not self._running:
                 break
+
+            # Check for cross-process nudge (agenda/alarm/theme changed via API)
+            if check_nudge():
+                self._agenda_last_load = 0
+                self._render_settings_last_load = 0
 
             # Reload cached settings periodically (every 2s, not per-frame)
             self._maybe_reload_render_settings()

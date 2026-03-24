@@ -12,6 +12,30 @@ import time
 _DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data")
 _CMD_FILE = os.path.join(_DATA_DIR, ".alarm_cmd.json")
 _STATE_FILE = os.path.join(_DATA_DIR, ".alarm_state.json")
+_NUDGE_FILE = os.path.join(_DATA_DIR, ".nudge")
+
+
+# ---------------------------------------------------------------------------
+# Nudge — lightweight cross-process "something changed" signal
+# ---------------------------------------------------------------------------
+
+def write_nudge():
+    """Signal the engine to reload data immediately (agenda, alarms, theme)."""
+    os.makedirs(_DATA_DIR, exist_ok=True)
+    try:
+        with open(_NUDGE_FILE, "w") as f:
+            f.write("")
+    except OSError:
+        pass
+
+
+def check_nudge():
+    """Check for and consume a nudge signal. Returns True if one was pending."""
+    try:
+        os.remove(_NUDGE_FILE)
+        return True
+    except FileNotFoundError:
+        return False
 
 
 # ---------------------------------------------------------------------------

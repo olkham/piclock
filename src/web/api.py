@@ -34,12 +34,14 @@ def create_api_blueprint():
 
     @bp.route("/settings", methods=["PUT"])
     def update_settings():
+        from src.alarms.ipc import write_nudge
         settings = current_app.settings
         data = request.get_json()
         if not data or not isinstance(data, dict):
             return jsonify({"error": "Invalid JSON body"}), 400
         for key, value in data.items():
             settings.set(key, value)
+        write_nudge()
         return jsonify({"status": "ok"})
 
     # --- Themes ---
@@ -61,18 +63,21 @@ def create_api_blueprint():
 
     @bp.route("/themes", methods=["POST"])
     def create_theme():
+        from src.alarms.ipc import write_nudge
         tm = current_app.theme_manager
         data = request.get_json()
         if not data:
             return jsonify({"error": "Invalid JSON body"}), 400
         try:
             theme = tm.save_theme(data)
+            write_nudge()
             return jsonify(theme), 201
         except ValueError as e:
             return jsonify({"error": str(e)}), 400
 
     @bp.route("/themes/<name>", methods=["PUT"])
     def update_theme(name):
+        from src.alarms.ipc import write_nudge
         tm = current_app.theme_manager
         data = request.get_json()
         if not data:
@@ -80,24 +85,29 @@ def create_api_blueprint():
         data["name"] = name
         try:
             theme = tm.save_theme(data)
+            write_nudge()
             return jsonify(theme)
         except ValueError as e:
             return jsonify({"error": str(e)}), 400
 
     @bp.route("/themes/<name>", methods=["DELETE"])
     def delete_theme(name):
+        from src.alarms.ipc import write_nudge
         tm = current_app.theme_manager
         try:
             tm.delete_theme(name)
+            write_nudge()
             return jsonify({"status": "ok"})
         except ValueError as e:
             return jsonify({"error": str(e)}), 400
 
     @bp.route("/themes/<name>/activate", methods=["POST"])
     def activate_theme(name):
+        from src.alarms.ipc import write_nudge
         tm = current_app.theme_manager
         try:
             tm.set_active(name)
+            write_nudge()
             return jsonify({"status": "ok", "active": name})
         except ValueError as e:
             return jsonify({"error": str(e)}), 400
@@ -117,6 +127,7 @@ def create_api_blueprint():
 
     @bp.route("/themes/import", methods=["POST"])
     def import_theme():
+        from src.alarms.ipc import write_nudge
         tm = current_app.theme_manager
         if request.content_type and "multipart" in request.content_type:
             if "file" not in request.files:
@@ -127,6 +138,7 @@ def create_api_blueprint():
             json_str = request.get_data(as_text=True)
         try:
             theme = tm.import_theme(json_str)
+            write_nudge()
             return jsonify(theme), 201
         except (json.JSONDecodeError, ValueError) as e:
             return jsonify({"error": str(e)}), 400
@@ -141,25 +153,31 @@ def create_api_blueprint():
     @bp.route("/alarms", methods=["POST"])
     def create_alarm():
         from src.config.settings import create_alarm as _create_alarm
+        from src.alarms.ipc import write_nudge
         data = request.get_json()
         if not data or "time" not in data:
             return jsonify({"error": "Missing 'time' field"}), 400
         alarm = _create_alarm(data)
+        write_nudge()
         return jsonify({"id": alarm["id"], "status": "created"}), 201
 
     @bp.route("/alarms/<int:alarm_id>", methods=["PUT"])
     def update_alarm(alarm_id):
         from src.config.settings import update_alarm as _update_alarm
+        from src.alarms.ipc import write_nudge
         data = request.get_json()
         if not data:
             return jsonify({"error": "Invalid JSON body"}), 400
         _update_alarm(alarm_id, data)
+        write_nudge()
         return jsonify({"status": "ok"})
 
     @bp.route("/alarms/<int:alarm_id>", methods=["DELETE"])
     def delete_alarm(alarm_id):
         from src.config.settings import delete_alarm as _delete_alarm
+        from src.alarms.ipc import write_nudge
         _delete_alarm(alarm_id)
+        write_nudge()
         return jsonify({"status": "ok"})
 
     # --- Uploads (images) ---
@@ -342,6 +360,7 @@ def create_api_blueprint():
     @bp.route("/agenda", methods=["POST"])
     def create_agenda_event():
         from src.config.settings import create_agenda_event as _create_event
+        from src.alarms.ipc import write_nudge
         data = request.get_json()
         if not data or "title" not in data or "start_time" not in data or "end_time" not in data:
             return jsonify({"error": "Missing required fields: title, start_time, end_time"}), 400
@@ -349,21 +368,26 @@ def create_api_blueprint():
         if not _TIME_RE.match(data["start_time"]) or not _TIME_RE.match(data["end_time"]):
             return jsonify({"error": "Invalid time format. Use HH:MM"}), 400
         event = _create_event(data)
+        write_nudge()
         return jsonify({"id": event["id"], "status": "created"}), 201
 
     @bp.route("/agenda/<int:event_id>", methods=["PUT"])
     def update_agenda_event(event_id):
         from src.config.settings import update_agenda_event as _update_event
+        from src.alarms.ipc import write_nudge
         data = request.get_json()
         if not data:
             return jsonify({"error": "Invalid JSON body"}), 400
         _update_event(event_id, data)
+        write_nudge()
         return jsonify({"status": "ok"})
 
     @bp.route("/agenda/<int:event_id>", methods=["DELETE"])
     def delete_agenda_event(event_id):
         from src.config.settings import delete_agenda_event as _delete_event
+        from src.alarms.ipc import write_nudge
         _delete_event(event_id)
+        write_nudge()
         return jsonify({"status": "ok"})
 
     # --- System (reboot / shutdown) ---
