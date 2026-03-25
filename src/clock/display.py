@@ -96,8 +96,9 @@ def show_frame_from_buffer(rgb_buffer):
     if _screen is None:
         raise RuntimeError("Display not initialized. Call init_display() first.")
     assert _frame_pg_surface is not None
-    # Cache numpy view + transposed view (buffer is always the same object)
-    if _display_arr is None:
+    # Cache numpy view + transposed view; re-bind when the buffer changes
+    # (clock and dial renderers use separate bytearrays)
+    if _display_arr is None or _display_arr.base is not rgb_buffer:
         _display_arr = np.frombuffer(rgb_buffer, dtype=np.uint8).reshape(DISPLAY_SIZE, DISPLAY_SIZE, 3)
         _display_arr_t = _display_arr.transpose(1, 0, 2)
     pygame.surfarray.blit_array(_frame_pg_surface, _display_arr_t)

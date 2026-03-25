@@ -10,8 +10,9 @@ from zoneinfo import ZoneInfo
 
 import pygame
 
-from src.alarms.ipc import check_nudge
+from src.alarms.ipc import check_nudge, read_dial_state
 from src.clock.renderer import render_frame
+from src.clock.dial import render_dial_frame
 from src.clock.display import show_frame_from_buffer
 
 
@@ -73,6 +74,14 @@ class ClockEngine:
         self.debug_fps = False
         # Alarm scheduler — polled from settings-reload path (no timer threads)
         self._alarm_scheduler = None
+        # Dial mode state
+        self._cfg_display_mode = "clock"
+        self._dial_state = None
+        self._dial_current_progress = 0.0
+        self._dial_target_progress = 0.0
+        self._dial_anim_start = 0.0
+        self._dial_anim_from = 0.0
+        self._dial_anim_duration = 0.5
 
     def set_alarm_scheduler(self, scheduler):
         """Attach alarm scheduler for polling from the render loop."""
@@ -200,6 +209,7 @@ class ClockEngine:
             if check_nudge():
                 self._agenda_last_load = 0
                 self._render_settings_last_load = 0
+                self._dial_state = None  # force reload
 
             # Reload cached settings periodically (every 2s, not per-frame)
             self._maybe_reload_render_settings()
@@ -258,17 +268,20 @@ class ClockEngine:
             # Reload agenda events periodically
             self._maybe_reload_agenda(now)
 
-            # Render frame (with optional alarm overlay + alarm indicators)
+            # Render frame
             if _debug:
                 _t0 = time.monotonic()
 
-            rgb_buf = render_frame(
-                time_info, theme,
-                overlay_fn=self._overlay_fn,
-                alarms=self._alarms,
-                agenda_events=self._agenda_events,
-                hand_angles=hand_angles,
-            )
+            if self._cfg_display_mode == "dial":
+                rgb_buf = self._render_dial(theme)
+            else:
+                rgb_buf = render_frame(
+                    time_info, theme,
+                    overlay_fn=self._overlay_fn,
+                    alarms=self._alarms,
+                    agenda_events=self._agenda_events,
+                    hand_angles=hand_angles,
+                )
 
             # Show frame (direct buffer path — no intermediate Pygame surface)
             show_frame_from_buffer(rgb_buf)
@@ -288,8 +301,12 @@ class ClockEngine:
                     _last_report = _now_dbg
 
             # Dynamic FPS using cached render settings (no per-frame I/O)
-            if self._alarm_active or tz_transitioning:
+            dial_animating = (self._cfg_display_mode == "dial"
+                              and self._dial_current_progress != self._dial_target_progress)
+            if self._alarm_active or tz_transitioning or dial_animating:
                 target_fps = self._cfg_animation_fps
+            elif self._cfg_display_mode == "dial":
+                target_fps = self._cfg_idle_fps
             elif smooth:
                 target_fps = self._cfg_smooth_fps
             else:
@@ -314,6 +331,42 @@ class ClockEngine:
                 # Fell behind — reset to avoid burst of catch-up frames
                 next_frame = time.monotonic()
 
+    def _render_dial(self, theme):
+        """Read dial state, animate progress, and render dial frame."""
+        # Lazy-load dial state (re-read on nudge or first call)
+        if self._dial_state is None:
+            self._dial_state = read_dial_state()
+            new_target = self._dial_state.get("progress", 0)
+            min_val = self._dial_state.get("min_value", 0)
+            max_val = self._dial_state.get("max_value", 100)
+            rng = max_val - min_val
+            pct = ((new_target - min_val) / rng * 100) if rng > 0 else 0
+            pct = max(0.0, min(100.0, pct))
+            if pct != self._dial_target_progress:
+                self._dial_anim_from = self._dial_current_progress
+                self._dial_target_progress = pct
+                self._dial_anim_start = time.monotonic()
+                dial_cfg = theme.get("dial", {})
+                self._dial_anim_duration = dial_cfg.get("animation_duration", 0.5)
+
+        # Animate progress
+        animate = theme.get("dial", {}).get("animate", True)
+        if animate and self._dial_current_progress != self._dial_target_progress:
+            elapsed = time.monotonic() - self._dial_anim_start
+            duration = self._dial_anim_duration
+            if elapsed >= duration:
+                self._dial_current_progress = self._dial_target_progress
+            else:
+                t = elapsed / duration
+                # ease-out: 1 - (1-t)^3
+                t = 1.0 - (1.0 - t) ** 3
+                diff = self._dial_target_progress - self._dial_anim_from
+                self._dial_current_progress = self._dial_anim_from + diff * t
+        else:
+            self._dial_current_progress = self._dial_target_progress
+
+        return render_dial_frame(theme, self._dial_state, self._dial_current_progress)
+
     def _maybe_reload_render_settings(self):
         """Reload FPS and timezone settings from storage every 2 seconds (not per-frame)."""
         now_ts = time.time()
@@ -334,6 +387,7 @@ class ClockEngine:
             except Exception:
                 self._cfg_timezone = "UTC"
                 self._cfg_tz = ZoneInfo("UTC")
+        self._cfg_display_mode = self._settings.get("display_mode", "clock") or "clock"
         self._cfg_theme = self._theme_manager.get_active_theme()
         # Poll alarm scheduler (replaces timer thread — no GIL contention)
         if self._alarm_scheduler:

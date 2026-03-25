@@ -34,6 +34,15 @@ def create_views_blueprint():
     def agenda():
         return render_template("agenda.html")
 
+    @bp.route("/dial")
+    def dial():
+        settings = current_app.settings
+        return render_template(
+            "dial.html",
+            display_mode=settings.get("display_mode", "clock"),
+            active_theme=settings.get("active_theme", "Classic"),
+        )
+
     @bp.route("/settings")
     def settings_page():
         settings = current_app.settings

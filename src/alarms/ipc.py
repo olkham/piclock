@@ -13,6 +13,17 @@ _DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data")
 _CMD_FILE = os.path.join(_DATA_DIR, ".alarm_cmd.json")
 _STATE_FILE = os.path.join(_DATA_DIR, ".alarm_state.json")
 _NUDGE_FILE = os.path.join(_DATA_DIR, ".nudge")
+_DIAL_STATE_FILE = os.path.join(_DATA_DIR, ".dial_state.json")
+
+_DEFAULT_DIAL_STATE = {
+    "progress": 0,
+    "min_value": 0,
+    "max_value": 100,
+    "text": "",
+    "label": "",
+    "progress_color": None,
+    "text_color": None,
+}
 
 
 # ---------------------------------------------------------------------------
@@ -31,11 +42,15 @@ def write_nudge():
 
 def check_nudge():
     """Check for and consume a nudge signal. Returns True if one was pending."""
-    try:
-        os.remove(_NUDGE_FILE)
-        return True
-    except FileNotFoundError:
-        return False
+    for _ in range(3):
+        try:
+            os.remove(_NUDGE_FILE)
+            return True
+        except FileNotFoundError:
+            return False
+        except PermissionError:
+            time.sleep(0.01)
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -49,16 +64,26 @@ def write_alarm_command(cmd, **kwargs):
     tmp = _CMD_FILE + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(payload, f)
+    for _ in range(5):
+        try:
+            os.replace(tmp, _CMD_FILE)
+            return
+        except PermissionError:
+            time.sleep(0.02)
     os.replace(tmp, _CMD_FILE)
 
 
 def read_alarm_state():
     """Read active alarm state written by the scheduler."""
-    try:
-        with open(_STATE_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return {"active": False}
+    for _ in range(5):
+        try:
+            with open(_STATE_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            return {"active": False}
+        except PermissionError:
+            time.sleep(0.02)
+    return {"active": False}
 
 
 # ---------------------------------------------------------------------------
@@ -103,4 +128,52 @@ def write_alarm_state(alarm_info):
     tmp = _STATE_FILE + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(state, f)
+    for _ in range(5):
+        try:
+            os.replace(tmp, _STATE_FILE)
+            return
+        except PermissionError:
+            time.sleep(0.02)
     os.replace(tmp, _STATE_FILE)
+
+
+# ---------------------------------------------------------------------------
+# Dial state — cross-process state for dial mode
+# ---------------------------------------------------------------------------
+
+def read_dial_state():
+    """Read dial state from disk. Returns dict with defaults for missing keys."""
+    data = {}
+    for _ in range(5):
+        try:
+            with open(_DIAL_STATE_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            break
+        except (FileNotFoundError, json.JSONDecodeError):
+            break
+        except PermissionError:
+            time.sleep(0.02)
+    result = dict(_DEFAULT_DIAL_STATE)
+    result.update(data)
+    return result
+
+
+def write_dial_state(state):
+    """Write dial state to disk (atomic, with retry for Windows file locks)."""
+    os.makedirs(_DATA_DIR, exist_ok=True)
+    tmp = _DIAL_STATE_FILE + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(state, f)
+    for _ in range(5):
+        try:
+            os.replace(tmp, _DIAL_STATE_FILE)
+            return
+        except PermissionError:
+            time.sleep(0.02)
+    # Last attempt — let it raise if still locked
+    os.replace(tmp, _DIAL_STATE_FILE)
+
+
+def reset_dial_state():
+    """Reset dial state to defaults."""
+    write_dial_state(dict(_DEFAULT_DIAL_STATE))

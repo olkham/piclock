@@ -17,11 +17,16 @@ def _read_json(path, default=None):
     """Read a JSON file, returning default if it doesn't exist or is invalid."""
     if default is None:
         default = {}
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return default
+    for _ in range(5):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            return default
+        except PermissionError:
+            import time
+            time.sleep(0.02)
+    return default
 
 
 def _write_json(path, data):
@@ -30,6 +35,13 @@ def _write_json(path, data):
     tmp = path + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
+    for _ in range(5):
+        try:
+            os.replace(tmp, path)
+            return
+        except PermissionError:
+            import time
+            time.sleep(0.02)
     os.replace(tmp, path)
 
 

@@ -1,0 +1,1080 @@
+{% extends "base.html" %}
+{% block title %}PiClock — Dial{% endblock %}
+{% block main_class %}max-w-[90rem] px-2 sm:px-4{% endblock %}
+{% block content %}
+<div x-data="dialManager()" x-init="init()">
+    <h1 class="text-2xl font-bold mb-6">Dial Mode</h1>
+
+    <!-- Display Mode Banner -->
+    <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-slate-800 border border-slate-700 rounded-xl px-5 py-4">
+        <div>
+            <span class="text-sm text-slate-400">Active Display</span>
+            <p class="text-xs text-slate-500 mt-0.5" x-text="displayMode === 'dial' ? 'The physical display is showing the dial.' : 'Switch to Dial mode to see changes on the display.'"></p>
+        </div>
+        <div class="flex bg-slate-700 rounded-lg p-0.5">
+            <button @click="setMode('clock')"
+                    :class="displayMode === 'clock' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'"
+                    class="px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200">
+                Clock
+            </button>
+            <button @click="setMode('dial')"
+                    :class="displayMode === 'dial' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'"
+                    class="px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200">
+                Dial
+            </button>
+        </div>
+    </div>
+
+    <!-- Two Column Layout: Controls left, Preview right -->
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+
+        <!-- Left Column: Controls + Appearance -->
+        <div class="lg:col-span-3 space-y-6 order-2 lg:order-1">
+
+            <!-- Runtime Controls -->
+            <div class="card">
+                <h2 class="text-lg font-semibold mb-4">Controls</h2>
+                <div class="space-y-4">
+                    <!-- Progress -->
+                    <div>
+                        <label class="flex items-center justify-between text-sm text-slate-400 mb-1">
+                            <span>Progress</span>
+                            <span class="font-mono text-slate-300" x-text="dial.progress"></span>
+                        </label>
+                        <input type="range" x-model.number="dial.progress"
+                               :min="dial.min_value" :max="dial.max_value" step="1"
+                               @input="saveDial()" class="w-full">
+                    </div>
+                    <!-- Min / Max -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Min Value</label>
+                            <input type="number" x-model.number="dial.min_value" @change="saveDial()"
+                                   class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Max Value</label>
+                            <input type="number" x-model.number="dial.max_value" @change="saveDial()"
+                                   class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
+                        </div>
+                    </div>
+                    <!-- Text / Label -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Text</label>
+                            <input type="text" x-model="dial.text" @input="saveDial()" placeholder="e.g. 72°F"
+                                   class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Label</label>
+                            <input type="text" x-model="dial.label" @input="saveDial()" placeholder="e.g. Temperature"
+                                   class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
+                        </div>
+                    </div>
+                    <!-- Color Overrides -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Progress Color</label>
+                            <div class="flex items-center gap-2">
+                                <input type="color" :value="dial.progress_color || appearance.progress_color"
+                                       @input="dial.progress_color = $event.target.value; saveDial()"
+                                       :disabled="!dial.progress_color" class="h-8 w-14 rounded flex-shrink-0">
+                                <span class="text-xs font-mono text-slate-500" x-text="dial.progress_color || 'theme'"></span>
+                            </div>
+                            <label class="toggle-switch mt-1.5">
+                                <input type="checkbox" :checked="!dial.progress_color"
+                                       @change="dial.progress_color = $event.target.checked ? null : appearance.progress_color; saveDial()">
+                                <div class="toggle-track"></div>
+                                <span class="ml-2 text-xs text-slate-500">Use theme default</span>
+                            </label>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Text Color</label>
+                            <div class="flex items-center gap-2">
+                                <input type="color" :value="dial.text_color || appearance.text_color"
+                                       @input="dial.text_color = $event.target.value; saveDial()"
+                                       :disabled="!dial.text_color" class="h-8 w-14 rounded flex-shrink-0">
+                                <span class="text-xs font-mono text-slate-500" x-text="dial.text_color || 'theme'"></span>
+                            </div>
+                            <label class="toggle-switch mt-1.5">
+                                <input type="checkbox" :checked="!dial.text_color"
+                                       @change="dial.text_color = $event.target.checked ? null : appearance.text_color; saveDial()">
+                                <div class="toggle-track"></div>
+                                <span class="ml-2 text-xs text-slate-500">Use theme default</span>
+                            </label>
+                        </div>
+                    </div>
+                    <!-- Reset -->
+                    <div class="pt-2 border-t border-slate-700">
+                        <button @click="showResetConfirm = true"
+                                class="bg-slate-600 hover:bg-slate-500 text-sm px-4 py-2 rounded transition-colors">
+                            Reset to Defaults
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dial Appearance (theme) -->
+            <div class="card">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-semibold">Dial Appearance</h2>
+                    <span class="text-xs text-green-400 transition-opacity duration-500"
+                          :class="themeSaved ? 'opacity-100' : 'opacity-0'">Saved &#10003;</span>
+                </div>
+                <p class="text-xs text-slate-500 mb-4">
+                    Saved to the active theme (<span x-text="activeThemeName"></span>).
+                </p>
+
+                <!-- Arc Geometry -->
+                <div class="mb-3">
+                    <button @click="sections.arc = !sections.arc"
+                            class="flex items-center justify-between w-full text-sm font-medium text-slate-300 hover:text-white py-2">
+                        <span>Arc Geometry</span>
+                        <span x-text="sections.arc ? '&#9660;' : '&#9654;'" class="text-xs text-slate-500"></span>
+                    </button>
+                    <div x-show="sections.arc" x-collapse class="space-y-3 pb-3">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">Arc Start: <span x-text="appearance.arc_start + '°'"></span></label>
+                                <input type="range" x-model.number="appearance.arc_start" min="0" max="360" step="5" @input="saveAppearance()" class="w-full">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">Arc End: <span x-text="appearance.arc_end + '°'"></span></label>
+                                <input type="range" x-model.number="appearance.arc_end" min="0" max="720" step="5" @input="saveAppearance()" class="w-full">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="flex items-center justify-between text-xs text-slate-400 mb-1">
+                                <span>Radius</span><span x-text="appearance.radius + '%'"></span>
+                            </label>
+                            <input type="range" x-model.number="appearance.radius" min="50" max="100" step="1" @input="saveAppearance()" class="w-full">
+                        </div>
+                        <div>
+                            <label class="flex items-center justify-between text-xs text-slate-400 mb-1">
+                                <span>Thickness</span><span x-text="appearance.thickness + '%'"></span>
+                            </label>
+                            <input type="range" x-model.number="appearance.thickness" min="2" max="30" step="1" @input="saveAppearance()" class="w-full">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Track -->
+                <div class="mb-3 border-t border-slate-700 pt-1">
+                    <button @click="sections.track = !sections.track"
+                            class="flex items-center justify-between w-full text-sm font-medium text-slate-300 hover:text-white py-2">
+                        <span>Track</span>
+                        <span x-text="sections.track ? '&#9660;' : '&#9654;'" class="text-xs text-slate-500"></span>
+                    </button>
+                    <div x-show="sections.track" x-collapse class="space-y-3 pb-3">
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Track Style</label>
+                            <select x-model="appearance.track_style" @change="saveAppearance()"
+                                    class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
+                                <option value="solid">Solid</option>
+                                <option value="gradient">Gradient</option>
+                                <option value="zones">Colour Zones</option>
+                            </select>
+                        </div>
+                        <!-- Solid colour -->
+                        <template x-if="appearance.track_style === 'solid'">
+                            <div class="flex items-center gap-3">
+                                <label class="block text-xs text-slate-400 flex-shrink-0">Color</label>
+                                <input type="color" x-model="appearance.track_color" @input="saveAppearance()" class="h-8 w-14 rounded">
+                                <span class="text-xs font-mono text-slate-500" x-text="appearance.track_color"></span>
+                            </div>
+                        </template>
+                        <!-- Gradient colours -->
+                        <template x-if="appearance.track_style === 'gradient'">
+                            <div class="space-y-3">
+                                <div class="flex items-center gap-3">
+                                    <label class="block text-xs text-slate-400 flex-shrink-0">Start</label>
+                                    <input type="color" x-model="appearance.track_gradient_start" @input="saveAppearance()" class="h-8 w-14 rounded">
+                                    <span class="text-xs font-mono text-slate-500" x-text="appearance.track_gradient_start"></span>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <label class="block text-xs text-slate-400 flex-shrink-0">End</label>
+                                    <input type="color" x-model="appearance.track_gradient_end" @input="saveAppearance()" class="h-8 w-14 rounded">
+                                    <span class="text-xs font-mono text-slate-500" x-text="appearance.track_gradient_end"></span>
+                                </div>
+                            </div>
+                        </template>
+                        <!-- Zones editor -->
+                        <template x-if="appearance.track_style === 'zones'">
+                            <div class="space-y-2">
+                                <template x-for="(zone, idx) in appearance.track_zones" :key="idx">
+                                    <div class="flex items-center gap-2 bg-slate-700/50 rounded px-2 py-1.5">
+                                        <input type="number" x-model.number="zone.from" @change="saveAppearance()" min="0" max="100" step="1"
+                                               class="w-16 bg-slate-700 border border-slate-600 rounded px-2 py-1 text-xs text-center">
+                                        <span class="text-xs text-slate-500">–</span>
+                                        <input type="number" x-model.number="zone.to" @change="saveAppearance()" min="0" max="100" step="1"
+                                               class="w-16 bg-slate-700 border border-slate-600 rounded px-2 py-1 text-xs text-center">
+                                        <span class="text-xs text-slate-500">%</span>
+                                        <input type="color" x-model="zone.color" @input="saveAppearance()" class="h-7 w-10 rounded flex-shrink-0">
+                                        <button @click="appearance.track_zones.splice(idx, 1); saveAppearance()"
+                                                class="text-xs text-red-400 hover:text-red-300 px-1">&times;</button>
+                                    </div>
+                                </template>
+                                <button @click="appearance.track_zones.push({from: 0, to: 100, color: '#888888'}); saveAppearance()"
+                                        class="text-xs text-blue-400 hover:text-blue-300">+ Add zone</button>
+                            </div>
+                        </template>
+                        <div>
+                            <label class="flex items-center justify-between text-xs text-slate-400 mb-1">
+                                <span>Opacity</span><span x-text="appearance.track_opacity + '%'"></span>
+                            </label>
+                            <input type="range" x-model.number="appearance.track_opacity" min="0" max="100" step="1" @input="saveAppearance()" class="w-full">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Progress Arc -->
+                <div class="mb-3 border-t border-slate-700 pt-1">
+                    <button @click="sections.progress = !sections.progress"
+                            class="flex items-center justify-between w-full text-sm font-medium text-slate-300 hover:text-white py-2">
+                        <span>Progress Arc</span>
+                        <span x-text="sections.progress ? '&#9660;' : '&#9654;'" class="text-xs text-slate-500"></span>
+                    </button>
+                    <div x-show="sections.progress" x-collapse class="space-y-3 pb-3">
+                        <label class="toggle-switch">
+                            <input type="checkbox" x-model="appearance.show_progress" @change="saveAppearance()">
+                            <div class="toggle-track"></div>
+                            <span class="ml-2 text-sm">Show progress arc</span>
+                        </label>
+                        <template x-if="appearance.show_progress">
+                        <div class="space-y-3">
+                        <div class="flex items-center gap-3">
+                            <label class="block text-xs text-slate-400 flex-shrink-0">Color</label>
+                            <input type="color" x-model="appearance.progress_color" @input="saveAppearance()" class="h-8 w-14 rounded">
+                            <span class="text-xs font-mono text-slate-500" x-text="appearance.progress_color"></span>
+                        </div>
+                        <div>
+                            <label class="flex items-center justify-between text-xs text-slate-400 mb-1">
+                                <span>Opacity</span><span x-text="appearance.progress_opacity + '%'"></span>
+                            </label>
+                            <input type="range" x-model.number="appearance.progress_opacity" min="0" max="100" step="1" @input="saveAppearance()" class="w-full">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Cap Style</label>
+                            <select x-model="appearance.cap_style" @change="saveAppearance()"
+                                    class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
+                                <option value="round">Round</option>
+                                <option value="butt">Butt</option>
+                                <option value="square">Square</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Style</label>
+                            <select x-model="appearance.style" @change="saveAppearance()"
+                                    class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
+                                <option value="solid">Solid</option>
+                                <option value="dashed">Dashed</option>
+                                <option value="gradient">Gradient</option>
+                            </select>
+                        </div>
+                        <template x-if="appearance.style === 'dashed'">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs text-slate-400 mb-1">Dash Length</label>
+                                    <input type="number" x-model.number="appearance.dash_length" @change="saveAppearance()" min="1" max="30"
+                                           class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-slate-400 mb-1">Dash Gap</label>
+                                    <input type="number" x-model.number="appearance.dash_gap" @change="saveAppearance()" min="1" max="30"
+                                           class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
+                                </div>
+                            </div>
+                        </template>
+                        <template x-if="appearance.style === 'gradient'">
+                            <div class="flex items-center gap-3">
+                                <label class="block text-xs text-slate-400 flex-shrink-0">End Color</label>
+                                <input type="color" x-model="appearance.gradient_end_color" @input="saveAppearance()" class="h-8 w-14 rounded">
+                                <span class="text-xs font-mono text-slate-500" x-text="appearance.gradient_end_color"></span>
+                            </div>
+                        </template>
+                        </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Text & Labels -->
+                <div class="mb-3 border-t border-slate-700 pt-1">
+                    <button @click="sections.text = !sections.text"
+                            class="flex items-center justify-between w-full text-sm font-medium text-slate-300 hover:text-white py-2">
+                        <span>Text &amp; Labels</span>
+                        <span x-text="sections.text ? '&#9660;' : '&#9654;'" class="text-xs text-slate-500"></span>
+                    </button>
+                    <div x-show="sections.text" x-collapse class="space-y-3 pb-3">
+                        <label class="toggle-switch">
+                            <input type="checkbox" x-model="appearance.show_text" @change="saveAppearance()">
+                            <div class="toggle-track"></div>
+                            <span class="ml-2 text-sm">Show text</span>
+                        </label>
+                        <template x-if="appearance.show_text">
+                            <div class="space-y-3">
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div class="flex items-center gap-3">
+                                        <label class="block text-xs text-slate-400 flex-shrink-0">Text Color</label>
+                                        <input type="color" x-model="appearance.text_color" @input="saveAppearance()" class="h-8 w-14 rounded">
+                                    </div>
+                                    <div class="flex items-center gap-3">
+                                        <label class="block text-xs text-slate-400 flex-shrink-0">Label Color</label>
+                                        <input type="color" x-model="appearance.label_color" @input="saveAppearance()" class="h-8 w-14 rounded">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-xs text-slate-400 mb-1">Text Font Size (0=auto)</label>
+                                        <input type="number" x-model.number="appearance.text_font_size" @change="saveAppearance()" min="0" max="120"
+                                               class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs text-slate-400 mb-1">Label Font Size (0=auto)</label>
+                                        <input type="number" x-model.number="appearance.label_font_size" @change="saveAppearance()" min="0" max="60"
+                                               class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="flex items-center justify-between text-xs text-slate-400 mb-1">
+                                            <span>Text Offset Y</span><span x-text="appearance.text_offset_y + '%'"></span>
+                                        </label>
+                                        <input type="range" x-model.number="appearance.text_offset_y" min="-50" max="50" step="1" @input="saveAppearance()" class="w-full">
+                                    </div>
+                                    <div>
+                                        <label class="flex items-center justify-between text-xs text-slate-400 mb-1">
+                                            <span>Label Offset Y</span><span x-text="appearance.label_offset_y + '%'"></span>
+                                        </label>
+                                        <input type="range" x-model.number="appearance.label_offset_y" min="-50" max="50" step="1" @input="saveAppearance()" class="w-full">
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- Value Display -->
+                        <div class="border-t border-slate-700/50 pt-3 mt-3">
+                            <label class="toggle-switch">
+                                <input type="checkbox" x-model="appearance.show_value" @change="saveAppearance()">
+                                <div class="toggle-track"></div>
+                                <span class="ml-2 text-sm">Show value</span>
+                            </label>
+                        </div>
+                        <template x-if="appearance.show_value">
+                            <div class="space-y-3">
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div class="flex items-center gap-3">
+                                        <label class="block text-xs text-slate-400 flex-shrink-0">Value Color</label>
+                                        <input type="color" x-model="appearance.value_color" @input="saveAppearance()" class="h-8 w-14 rounded">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs text-slate-400 mb-1">Suffix</label>
+                                        <input type="text" x-model="appearance.value_suffix" @input="saveAppearance()" placeholder="e.g. °F, %"
+                                               class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-xs text-slate-400 mb-1">Font Size (0=auto)</label>
+                                        <input type="number" x-model.number="appearance.value_font_size" @change="saveAppearance()" min="0" max="80"
+                                               class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="flex items-center justify-between text-xs text-slate-400 mb-1">
+                                            <span>Offset Y</span><span x-text="appearance.value_offset_y + '%'"></span>
+                                        </label>
+                                        <input type="range" x-model.number="appearance.value_offset_y" min="-50" max="50" step="1" @input="saveAppearance()" class="w-full">
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- Min / Max Labels -->
+                        <div class="border-t border-slate-700/50 pt-3 mt-3">
+                            <label class="toggle-switch">
+                                <input type="checkbox" x-model="appearance.show_min_max" @change="saveAppearance()">
+                                <div class="toggle-track"></div>
+                                <span class="ml-2 text-sm">Show min/max labels</span>
+                            </label>
+                        </div>
+                        <template x-if="appearance.show_min_max">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="flex items-center gap-3">
+                                    <label class="block text-xs text-slate-400 flex-shrink-0">Color</label>
+                                    <input type="color" x-model="appearance.min_max_color" @input="saveAppearance()" class="h-8 w-14 rounded">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-slate-400 mb-1">Font Size (0=auto)</label>
+                                    <input type="number" x-model.number="appearance.min_max_font_size" @change="saveAppearance()" min="0" max="40"
+                                           class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Tick Marks -->
+                <div class="mb-3 border-t border-slate-700 pt-1">
+                    <button @click="sections.ticks = !sections.ticks"
+                            class="flex items-center justify-between w-full text-sm font-medium text-slate-300 hover:text-white py-2">
+                        <span>Tick Marks</span>
+                        <span x-text="sections.ticks ? '&#9660;' : '&#9654;'" class="text-xs text-slate-500"></span>
+                    </button>
+                    <div x-show="sections.ticks" x-collapse class="space-y-3 pb-3">
+                        <label class="toggle-switch">
+                            <input type="checkbox" x-model="appearance.tick_marks" @change="saveAppearance()">
+                            <div class="toggle-track"></div>
+                            <span class="ml-2 text-sm">Enable tick marks</span>
+                        </label>
+                        <template x-if="appearance.tick_marks">
+                            <div class="space-y-3">
+                                <!-- Major ticks -->
+                                <p class="text-xs font-semibold text-slate-300 mt-1">Major Ticks</p>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-xs text-slate-400 mb-1">Count</label>
+                                        <input type="number" x-model.number="appearance.major_tick_count" @change="saveAppearance()" min="2" max="60"
+                                               class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
+                                    </div>
+                                    <div class="flex items-center gap-3">
+                                        <label class="block text-xs text-slate-400 flex-shrink-0">Color</label>
+                                        <input type="color" x-model="appearance.major_tick_color" @input="saveAppearance()" class="h-8 w-14 rounded">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="flex items-center justify-between text-xs text-slate-400 mb-1">
+                                            <span>Inner Radius</span><span x-text="appearance.major_tick_inner_radius + '%'"></span>
+                                        </label>
+                                        <input type="range" x-model.number="appearance.major_tick_inner_radius" min="30" max="100" step="1" @input="saveAppearance()" class="w-full">
+                                    </div>
+                                    <div>
+                                        <label class="flex items-center justify-between text-xs text-slate-400 mb-1">
+                                            <span>Outer Radius</span><span x-text="appearance.major_tick_outer_radius + '%'"></span>
+                                        </label>
+                                        <input type="range" x-model.number="appearance.major_tick_outer_radius" min="30" max="100" step="1" @input="saveAppearance()" class="w-full">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="flex items-center justify-between text-xs text-slate-400 mb-1">
+                                        <span>Width</span><span x-text="appearance.major_tick_width + 'px'"></span>
+                                    </label>
+                                    <input type="range" x-model.number="appearance.major_tick_width" min="1" max="6" step="0.5" @input="saveAppearance()" class="w-full">
+                                </div>
+
+                                <!-- Minor ticks -->
+                                <div class="border-t border-slate-700/50 pt-3 mt-2">
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" x-model="appearance.minor_ticks" @change="saveAppearance()">
+                                        <div class="toggle-track"></div>
+                                        <span class="ml-2 text-sm">Minor Ticks</span>
+                                    </label>
+                                </div>
+                                <template x-if="appearance.minor_ticks">
+                                    <div class="space-y-3">
+                                        <div class="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label class="block text-xs text-slate-400 mb-1">Per Interval</label>
+                                                <input type="number" x-model.number="appearance.minor_tick_count" @change="saveAppearance()" min="1" max="10"
+                                                       class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
+                                            </div>
+                                            <div class="flex items-center gap-3">
+                                                <label class="block text-xs text-slate-400 flex-shrink-0">Color</label>
+                                                <input type="color" x-model="appearance.minor_tick_color" @input="saveAppearance()" class="h-8 w-14 rounded">
+                                            </div>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label class="flex items-center justify-between text-xs text-slate-400 mb-1">
+                                                    <span>Inner Radius</span><span x-text="appearance.minor_tick_inner_radius + '%'"></span>
+                                                </label>
+                                                <input type="range" x-model.number="appearance.minor_tick_inner_radius" min="30" max="100" step="1" @input="saveAppearance()" class="w-full">
+                                            </div>
+                                            <div>
+                                                <label class="flex items-center justify-between text-xs text-slate-400 mb-1">
+                                                    <span>Outer Radius</span><span x-text="appearance.minor_tick_outer_radius + '%'"></span>
+                                                </label>
+                                                <input type="range" x-model.number="appearance.minor_tick_outer_radius" min="30" max="100" step="1" @input="saveAppearance()" class="w-full">
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label class="flex items-center justify-between text-xs text-slate-400 mb-1">
+                                                <span>Width</span><span x-text="appearance.minor_tick_width + 'px'"></span>
+                                            </label>
+                                            <input type="range" x-model.number="appearance.minor_tick_width" min="0.5" max="4" step="0.5" @input="saveAppearance()" class="w-full">
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Hand -->
+                <div class="mb-3 border-t border-slate-700 pt-1">
+                    <button @click="sections.hand = !sections.hand"
+                            class="flex items-center justify-between w-full text-sm font-medium text-slate-300 hover:text-white py-2">
+                        <span>Hand</span>
+                        <span x-text="sections.hand ? '&#9660;' : '&#9654;'" class="text-xs text-slate-500"></span>
+                    </button>
+                    <div x-show="sections.hand" x-collapse class="space-y-3 pb-3">
+                        <label class="toggle-switch">
+                            <input type="checkbox" x-model="appearance.show_hand" @change="saveAppearance()">
+                            <div class="toggle-track"></div>
+                            <span class="ml-2 text-sm">Show hand</span>
+                        </label>
+                        <template x-if="appearance.show_hand">
+                            <div class="space-y-3">
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-xs text-slate-400 mb-1">Style</label>
+                                        <select x-model="appearance.hand_style" @change="saveAppearance()"
+                                                class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
+                                            <option value="triangle">Triangle</option>
+                                            <option value="needle">Needle</option>
+                                            <option value="line">Line</option>
+                                        </select>
+                                    </div>
+                                    <div class="flex items-center gap-3">
+                                        <label class="block text-xs text-slate-400 flex-shrink-0">Color</label>
+                                        <input type="color" x-model="appearance.hand_color" @input="saveAppearance()" class="h-8 w-14 rounded">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="flex items-center justify-between text-xs text-slate-400 mb-1">
+                                            <span>Length</span><span x-text="appearance.hand_length + '%'"></span>
+                                        </label>
+                                        <input type="range" x-model.number="appearance.hand_length" min="20" max="100" step="1" @input="saveAppearance()" class="w-full">
+                                    </div>
+                                    <div>
+                                        <label class="flex items-center justify-between text-xs text-slate-400 mb-1">
+                                            <span>Tail</span><span x-text="appearance.hand_tail + '%'"></span>
+                                        </label>
+                                        <input type="range" x-model.number="appearance.hand_tail" min="0" max="30" step="1" @input="saveAppearance()" class="w-full">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="flex items-center justify-between text-xs text-slate-400 mb-1">
+                                        <span>Width</span><span x-text="appearance.hand_width + '%'"></span>
+                                    </label>
+                                    <input type="range" x-model.number="appearance.hand_width" min="1" max="10" step="0.5" @input="saveAppearance()" class="w-full">
+                                </div>
+                                <div class="border-t border-slate-700/50 pt-3">
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" x-model="appearance.hand_center_dot" @change="saveAppearance()">
+                                        <div class="toggle-track"></div>
+                                        <span class="ml-2 text-sm">Center dot</span>
+                                    </label>
+                                </div>
+                                <template x-if="appearance.hand_center_dot">
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="flex items-center justify-between text-xs text-slate-400 mb-1">
+                                                <span>Dot Radius</span><span x-text="appearance.hand_center_dot_radius + '%'"></span>
+                                            </label>
+                                            <input type="range" x-model.number="appearance.hand_center_dot_radius" min="1" max="10" step="0.5" @input="saveAppearance()" class="w-full">
+                                        </div>
+                                        <div class="flex items-center gap-3">
+                                            <label class="block text-xs text-slate-400 flex-shrink-0">Dot Color</label>
+                                            <input type="color" x-model="appearance.hand_center_dot_color" @input="saveAppearance()" class="h-8 w-14 rounded">
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Animation -->
+                <div class="border-t border-slate-700 pt-1">
+                    <button @click="sections.animation = !sections.animation"
+                            class="flex items-center justify-between w-full text-sm font-medium text-slate-300 hover:text-white py-2">
+                        <span>Animation</span>
+                        <span x-text="sections.animation ? '&#9660;' : '&#9654;'" class="text-xs text-slate-500"></span>
+                    </button>
+                    <div x-show="sections.animation" x-collapse class="space-y-3 pb-3">
+                        <label class="toggle-switch">
+                            <input type="checkbox" x-model="appearance.animate" @change="saveAppearance()">
+                            <div class="toggle-track"></div>
+                            <span class="ml-2 text-sm">Enable animation</span>
+                        </label>
+                        <template x-if="appearance.animate">
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="flex items-center justify-between text-xs text-slate-400 mb-1">
+                                        <span>Duration</span><span x-text="appearance.animation_duration + 's'"></span>
+                                    </label>
+                                    <input type="range" x-model.number="appearance.animation_duration" min="0.1" max="2" step="0.1" @input="saveAppearance()" class="w-full">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-slate-400 mb-1">Curve</label>
+                                    <select x-model="appearance.animation_curve" @change="saveAppearance()"
+                                            class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
+                                        <option value="ease_out">Ease Out</option>
+                                        <option value="ease_in_out">Ease In-Out</option>
+                                        <option value="linear">Linear</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Preview -->
+        <div class="lg:col-span-2 order-1 lg:order-2">
+            <div class="lg:sticky lg:top-4">
+                <div class="card">
+                    <h2 class="text-lg font-semibold mb-3">Preview</h2>
+                    <div class="flex justify-center">
+                        <canvas id="dialPreview" width="360" height="360"
+                                class="rounded-full max-w-full" style="aspect-ratio:1/1;"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reset Confirmation Modal -->
+    <div x-show="showResetConfirm" x-cloak class="fixed inset-0 bg-black/60 flex items-center justify-center z-50" @click.self="showResetConfirm = false">
+        <div class="bg-slate-800 rounded-lg shadow-xl p-6 w-full max-w-sm mx-4">
+            <h3 class="text-lg font-semibold mb-2">Reset Dial State?</h3>
+            <p class="text-sm text-slate-400 mb-1">This will reset:</p>
+            <ul class="text-sm text-slate-400 mb-4 list-disc list-inside">
+                <li>Progress value to 0</li>
+                <li>Text &amp; label to empty</li>
+                <li>Color overrides to theme defaults</li>
+            </ul>
+            <div class="flex justify-end gap-3">
+                <button @click="showResetConfirm = false"
+                        class="px-4 py-2 rounded text-sm bg-slate-700 hover:bg-slate-600 transition-colors">Cancel</button>
+                <button @click="resetDial()"
+                        class="px-4 py-2 rounded text-sm bg-red-600 hover:bg-red-700 text-white transition-colors">Reset</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function dialManager() {
+    return {
+        displayMode: '{{ display_mode }}',
+        activeThemeName: '{{ active_theme }}',
+        showResetConfirm: false,
+        themeSaved: false,
+        _saveTimer: null,
+
+        // Collapsible sections (open by default: arc + progress)
+        sections: { arc: true, track: false, progress: true, text: false, ticks: false, hand: false, animation: false },
+
+        // Runtime dial state
+        dial: { progress: 0, min_value: 0, max_value: 100, text: '', label: '', progress_color: null, text_color: null },
+
+        // Theme appearance (dial section of active theme)
+        appearance: {
+            arc_start: 135, arc_end: 405, thickness: 14,
+            track_color: '#ffffff', track_opacity: 12,
+            track_style: 'solid',
+            track_gradient_start: '#22c55e', track_gradient_end: '#ef4444',
+            track_zones: [{from: 0, to: 33, color: '#22c55e'}, {from: 33, to: 66, color: '#f59e0b'}, {from: 66, to: 100, color: '#ef4444'}],
+            show_progress: true,
+            progress_color: '#00D68F', progress_opacity: 100,
+            cap_style: 'round', style: 'solid',
+            dash_length: 8, dash_gap: 4, gradient_end_color: '#ff4444',
+            radius: 85, show_text: true,
+            text_color: '#ffffff', text_font_size: 0, text_offset_y: -2,
+            label_color: '#888888', label_font_size: 0, label_offset_y: 8,
+            show_value: false, value_color: '#ffffff', value_font_size: 0, value_offset_y: 12, value_suffix: '',
+            show_min_max: false, min_max_color: '#666666', min_max_font_size: 0,
+            tick_marks: false,
+            major_tick_count: 10, major_tick_inner_radius: 72, major_tick_outer_radius: 78, major_tick_width: 2, major_tick_color: '#888888',
+            minor_ticks: false, minor_tick_count: 4, minor_tick_inner_radius: 73, minor_tick_outer_radius: 77, minor_tick_width: 1, minor_tick_color: '#555555',
+            show_hand: false, hand_color: '#ffffff', hand_width: 3, hand_length: 80, hand_tail: 10, hand_style: 'triangle',
+            hand_center_dot: true, hand_center_dot_radius: 4, hand_center_dot_color: '#333333',
+            animate: true, animation_duration: 0.5, animation_curve: 'ease_out',
+        },
+
+        // Canvas preview state
+        _previewCtx: null,
+        _rafId: null,
+        _animProgress: 0,
+        _animTarget: 0,
+        _animStart: 0,
+        _animFrom: 0,
+
+        async init() {
+            const [dialResp, themeResp, settingsResp] = await Promise.all([
+                fetch('/api/dial'), fetch('/api/themes/' + encodeURIComponent(this.activeThemeName)), fetch('/api/settings')
+            ]);
+            this.dial = await dialResp.json();
+            const theme = await themeResp.json();
+            const settings = await settingsResp.json();
+            this.displayMode = settings.display_mode || 'clock';
+            if (theme.dial) Object.assign(this.appearance, theme.dial);
+
+            // Init canvas
+            const canvas = document.getElementById('dialPreview');
+            this._previewCtx = canvas.getContext('2d');
+            this._animProgress = this._progressPct();
+            this._animTarget = this._animProgress;
+            this._startPreview();
+        },
+
+        // --- Mode ---
+        async setMode(mode) {
+            this.displayMode = mode;
+            await fetch('/api/settings', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ display_mode: mode }),
+            });
+        },
+
+        // --- Runtime state ---
+        _dialSaveTimer: null,
+        saveDial() {
+            this._animTarget = this._progressPct();
+            clearTimeout(this._dialSaveTimer);
+            this._dialSaveTimer = setTimeout(() => this._doSaveDial(), 150);
+        },
+        async _doSaveDial() {
+            await fetch('/api/dial', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(this.dial),
+            });
+        },
+
+        async resetDial() {
+            this.showResetConfirm = false;
+            await fetch('/api/dial/reset', { method: 'POST' });
+            const resp = await fetch('/api/dial');
+            this.dial = await resp.json();
+            this._animTarget = this._progressPct();
+        },
+
+        // --- Theme appearance ---
+        saveAppearance() {
+            clearTimeout(this._saveTimer);
+            this._saveTimer = setTimeout(() => this._doSaveAppearance(), 500);
+        },
+
+        async _doSaveAppearance() {
+            const name = this.activeThemeName;
+            const themeResp = await fetch('/api/themes/' + encodeURIComponent(name));
+            const theme = await themeResp.json();
+            theme.dial = { ...this.appearance };
+            await fetch('/api/themes/' + encodeURIComponent(name), {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(theme),
+            });
+            this.themeSaved = true;
+            setTimeout(() => this.themeSaved = false, 1500);
+        },
+
+        // --- Preview rendering ---
+        _progressPct() {
+            const range = this.dial.max_value - this.dial.min_value;
+            if (range <= 0) return 0;
+            return Math.max(0, Math.min(100, (this.dial.progress - this.dial.min_value) / range * 100));
+        },
+
+        _startPreview() {
+            const draw = () => {
+                this._updateAnimation();
+                this._drawDial();
+                this._rafId = requestAnimationFrame(draw);
+            };
+            draw();
+        },
+
+        _updateAnimation() {
+            const target = this._animTarget;
+            if (Math.abs(this._animProgress - target) < 0.1) {
+                this._animProgress = target;
+                return;
+            }
+            // Smooth lerp
+            this._animProgress += (target - this._animProgress) * 0.12;
+        },
+
+        _drawDial() {
+            const ctx = this._previewCtx;
+            if (!ctx) return;
+            const a = this.appearance;
+            const size = 360;
+            const center = size / 2;
+            const dpr = window.devicePixelRatio || 1;
+            const canvas = ctx.canvas;
+            if (canvas.width !== size * dpr) {
+                canvas.width = size * dpr;
+                canvas.height = size * dpr;
+                canvas.style.width = size + 'px';
+                canvas.style.height = size + 'px';
+                ctx.scale(dpr, dpr);
+            }
+
+            ctx.clearRect(0, 0, size, size);
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(center, center, center, 0, Math.PI * 2);
+            ctx.clip();
+
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, size, size);
+
+            const radius = a.radius / 100 * center;
+            const thickness = a.thickness / 100 * radius;
+            const half = center;
+
+            const degToRad = (deg) => (deg - 90) * Math.PI / 180;
+            const startRad = degToRad(a.arc_start);
+            const endRad = degToRad(a.arc_end);
+            const sweep = endRad - startRad;
+
+            const hexToRgba = (hex, alpha) => {
+                const r = parseInt(hex.slice(1,3), 16);
+                const g = parseInt(hex.slice(3,5), 16);
+                const b = parseInt(hex.slice(5,7), 16);
+                return `rgba(${r},${g},${b},${alpha})`;
+            };
+
+            // --- Track ---
+            ctx.lineWidth = thickness;
+            ctx.lineCap = a.cap_style;
+
+            if (a.track_style === 'zones' && a.track_zones && a.track_zones.length) {
+                const trackAlpha = a.track_opacity / 100;
+                for (const zone of a.track_zones) {
+                    const zStart = startRad + sweep * (zone.from / 100);
+                    const zEnd = startRad + sweep * (zone.to / 100);
+                    ctx.beginPath();
+                    ctx.arc(center, center, radius, zStart, zEnd);
+                    ctx.strokeStyle = hexToRgba(zone.color, trackAlpha);
+                    ctx.globalAlpha = 1;
+                    ctx.stroke();
+                }
+            } else if (a.track_style === 'gradient') {
+                const sx = center + radius * Math.cos(startRad);
+                const sy = center + radius * Math.sin(startRad);
+                const ex = center + radius * Math.cos(endRad);
+                const ey = center + radius * Math.sin(endRad);
+                const grad = ctx.createLinearGradient(sx, sy, ex, ey);
+                grad.addColorStop(0, a.track_gradient_start);
+                grad.addColorStop(1, a.track_gradient_end);
+                ctx.beginPath();
+                ctx.arc(center, center, radius, startRad, endRad);
+                ctx.strokeStyle = grad;
+                ctx.globalAlpha = a.track_opacity / 100;
+                ctx.stroke();
+                ctx.globalAlpha = 1;
+            } else {
+                ctx.beginPath();
+                ctx.arc(center, center, radius, startRad, endRad);
+                ctx.strokeStyle = a.track_color;
+                ctx.globalAlpha = a.track_opacity / 100;
+                ctx.stroke();
+                ctx.globalAlpha = 1;
+            }
+
+            // --- Progress arc ---
+            const progress = Math.max(0, Math.min(100, this._animProgress));
+            if (a.show_progress !== false && progress > 0) {
+                const progEnd = startRad + sweep * (progress / 100);
+                ctx.beginPath();
+                ctx.arc(center, center, radius, startRad, progEnd);
+                const pc = this.dial.progress_color || a.progress_color;
+                if (a.style === 'gradient') {
+                    const gx1 = center + radius * Math.cos(startRad);
+                    const gy1 = center + radius * Math.sin(startRad);
+                    const gx2 = center + radius * Math.cos(progEnd);
+                    const gy2 = center + radius * Math.sin(progEnd);
+                    const grad = ctx.createLinearGradient(gx1, gy1, gx2, gy2);
+                    grad.addColorStop(0, pc);
+                    grad.addColorStop(1, a.gradient_end_color);
+                    ctx.strokeStyle = grad;
+                } else {
+                    ctx.strokeStyle = pc;
+                }
+                ctx.globalAlpha = a.progress_opacity / 100;
+                ctx.lineWidth = thickness;
+                ctx.lineCap = a.cap_style;
+                if (a.style === 'dashed') {
+                    ctx.setLineDash([a.dash_length, a.dash_gap]);
+                } else {
+                    ctx.setLineDash([]);
+                }
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.globalAlpha = 1;
+            }
+
+            // --- Tick marks ---
+            if (a.tick_marks) {
+                ctx.lineCap = 'butt';
+                const majCount = a.major_tick_count || 10;
+                if (majCount >= 2) {
+                    // Minor ticks (behind majors)
+                    if (a.minor_ticks && a.minor_tick_count > 0) {
+                        const minInner = (a.minor_tick_inner_radius || 73) / 100 * half;
+                        const minOuter = (a.minor_tick_outer_radius || 77) / 100 * half;
+                        ctx.strokeStyle = a.minor_tick_color || '#555555';
+                        ctx.lineWidth = a.minor_tick_width || 1;
+                        const minPer = a.minor_tick_count;
+                        for (let i = 0; i < majCount; i++) {
+                            for (let j = 1; j <= minPer; j++) {
+                                const frac = (i + j / (minPer + 1)) / majCount;
+                                const angle = startRad + sweep * frac;
+                                ctx.beginPath();
+                                ctx.moveTo(center + minInner * Math.cos(angle), center + minInner * Math.sin(angle));
+                                ctx.lineTo(center + minOuter * Math.cos(angle), center + minOuter * Math.sin(angle));
+                                ctx.stroke();
+                            }
+                        }
+                    }
+                    // Major ticks
+                    const majInner = (a.major_tick_inner_radius || 72) / 100 * half;
+                    const majOuter = (a.major_tick_outer_radius || 78) / 100 * half;
+                    ctx.strokeStyle = a.major_tick_color || '#888888';
+                    ctx.lineWidth = a.major_tick_width || 2;
+                    for (let i = 0; i <= majCount; i++) {
+                        const angle = startRad + sweep * (i / majCount);
+                        ctx.beginPath();
+                        ctx.moveTo(center + majInner * Math.cos(angle), center + majInner * Math.sin(angle));
+                        ctx.lineTo(center + majOuter * Math.cos(angle), center + majOuter * Math.sin(angle));
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            // --- Hand ---
+            const handAngle = startRad + sweep * (progress / 100);
+            if (a.show_hand) {
+                const tipR = (a.hand_length || 80) / 100 * half;
+                const tailR = (a.hand_tail || 10) / 100 * half;
+                const baseW = (a.hand_width || 3) / 100 * radius;
+                const cosA = Math.cos(handAngle);
+                const sinA = Math.sin(handAngle);
+                const cosP = Math.cos(handAngle + Math.PI / 2);
+                const sinP = Math.sin(handAngle + Math.PI / 2);
+                const tipX = center + tipR * cosA;
+                const tipY = center + tipR * sinA;
+                const tailX = center - tailR * cosA;
+                const tailY = center - tailR * sinA;
+
+                ctx.fillStyle = a.hand_color || '#ffffff';
+                ctx.strokeStyle = a.hand_color || '#ffffff';
+
+                if (a.hand_style === 'line') {
+                    ctx.lineWidth = Math.max(baseW, 2);
+                    ctx.lineCap = 'round';
+                    ctx.beginPath();
+                    ctx.moveTo(tailX, tailY);
+                    ctx.lineTo(tipX, tipY);
+                    ctx.stroke();
+                } else if (a.hand_style === 'needle') {
+                    const shaftW = Math.max(baseW * 0.3, 1);
+                    const diamondW = Math.max(baseW * 1.2, 2);
+                    const diamondLen = tipR * 0.06;
+                    ctx.lineWidth = shaftW;
+                    ctx.lineCap = 'butt';
+                    const dbx = center + (tipR - diamondLen) * cosA;
+                    const dby = center + (tipR - diamondLen) * sinA;
+                    ctx.beginPath();
+                    ctx.moveTo(tailX, tailY);
+                    ctx.lineTo(dbx, dby);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(tipX, tipY);
+                    ctx.lineTo(dbx + diamondW * cosP, dby + diamondW * sinP);
+                    ctx.lineTo(center + (tipR - diamondLen * 2) * cosA, center + (tipR - diamondLen * 2) * sinA);
+                    ctx.lineTo(dbx - diamondW * cosP, dby - diamondW * sinP);
+                    ctx.closePath();
+                    ctx.fill();
+                } else {
+                    // Triangle
+                    ctx.beginPath();
+                    ctx.moveTo(tipX, tipY);
+                    ctx.lineTo(tailX + baseW * cosP, tailY + baseW * sinP);
+                    ctx.lineTo(tailX - baseW * cosP, tailY - baseW * sinP);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+            }
+
+            // --- Text ---
+            if (a.show_text) {
+                const textSize = a.text_font_size || Math.round(size * 0.11);
+                const labelSize = a.label_font_size || Math.round(size * 0.045);
+                const textY = center + a.text_offset_y / 100 * radius;
+                const labelY = center + a.label_offset_y / 100 * radius;
+                const tc = this.dial.text_color || a.text_color;
+
+                if (this.dial.text) {
+                    ctx.fillStyle = tc;
+                    ctx.font = `bold ${textSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(this.dial.text, center, textY);
+                }
+                if (this.dial.label) {
+                    ctx.fillStyle = a.label_color;
+                    ctx.font = `${labelSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(this.dial.label, center, labelY);
+                }
+            }
+
+            // --- Value text ---
+            if (a.show_value) {
+                const valSize = a.value_font_size || Math.round(size * 0.07);
+                const valY = center + (a.value_offset_y || 12) / 100 * radius;
+                const valStr = this.dial.progress + (a.value_suffix || '');
+                ctx.fillStyle = a.value_color || '#ffffff';
+                ctx.font = `bold ${valSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(valStr, center, valY);
+            }
+
+            // --- Min / Max labels ---
+            if (a.show_min_max) {
+                const mmSize = a.min_max_font_size || Math.round(size * 0.03);
+                const labelR = radius * 0.82;
+                ctx.fillStyle = a.min_max_color || '#666666';
+                ctx.font = `${mmSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                const minX = center + labelR * Math.cos(startRad);
+                const minY = center + labelR * Math.sin(startRad);
+                const maxX = center + labelR * Math.cos(endRad);
+                const maxY = center + labelR * Math.sin(endRad);
+                ctx.fillText(String(this.dial.min_value), minX, minY);
+                ctx.fillText(String(this.dial.max_value), maxX, maxY);
+            }
+
+            // --- Hand center dot (last, for visual hierarchy) ---
+            if (a.show_hand && a.hand_center_dot) {
+                const dotR = (a.hand_center_dot_radius || 4) / 100 * half;
+                ctx.beginPath();
+                ctx.arc(center, center, dotR, 0, Math.PI * 2);
+                ctx.fillStyle = a.hand_center_dot_color || '#333333';
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(center, center, dotR, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        },
+    };
+}
+</script>
+{% endblock %}

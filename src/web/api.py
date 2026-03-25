@@ -390,6 +390,35 @@ def create_api_blueprint():
         write_nudge()
         return jsonify({"status": "ok"})
 
+    # --- Dial ---
+
+    @bp.route("/dial", methods=["GET"])
+    def get_dial():
+        from src.alarms.ipc import read_dial_state
+        return jsonify(read_dial_state())
+
+    @bp.route("/dial", methods=["PUT"])
+    def update_dial():
+        from src.alarms.ipc import write_dial_state, read_dial_state, write_nudge
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "Invalid JSON body"}), 400
+        state = read_dial_state()
+        allowed = set(state.keys())
+        for key, value in data.items():
+            if key in allowed:
+                state[key] = value
+        write_dial_state(state)
+        write_nudge()
+        return jsonify(state)
+
+    @bp.route("/dial/reset", methods=["POST"])
+    def reset_dial():
+        from src.alarms.ipc import reset_dial_state, write_nudge
+        reset_dial_state()
+        write_nudge()
+        return jsonify({"status": "ok"})
+
     # --- System (reboot / shutdown) ---
 
     @bp.route("/reboot", methods=["POST"])

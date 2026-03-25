@@ -233,6 +233,36 @@ class PiClock:
         return self._delete(f"agenda/{event_id}")
 
     # ------------------------------------------------------------------
+    # Dial
+    # ------------------------------------------------------------------
+
+    def get_dial(self) -> dict:
+        """Get the current dial state."""
+        return self._get("dial")
+
+    def set_dial(self, **kwargs) -> dict:
+        """Update dial state fields.
+
+        Args:
+            progress: Current value (between min_value and max_value).
+            min_value: Minimum value (default 0).
+            max_value: Maximum value (default 100).
+            text: Primary text displayed in the centre.
+            label: Secondary label below the text.
+            progress_color: Override progress arc colour (hex, e.g. ``"#ff0000"``).
+            text_color: Override text colour (hex).
+        """
+        return self._put("dial", json=kwargs)
+
+    def reset_dial(self) -> dict:
+        """Reset dial state to defaults."""
+        return self._post("dial/reset")
+
+    def set_display_mode(self, mode: str) -> dict:
+        """Switch between ``"clock"`` and ``"dial"`` display modes."""
+        return self.update_settings(display_mode=mode)
+
+    # ------------------------------------------------------------------
     # Sounds
     # ------------------------------------------------------------------
 

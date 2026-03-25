@@ -560,48 +560,123 @@ def draw_agenda(ctx, size, theme, agenda_events):
         ctx.fill()
 
 
+def _parse_event_mins(ev):
+    """Parse start/end times from an event dict. Returns (start_mins, end_mins) or None."""
+    start_str = ev.get("start_time", "")
+    end_str = ev.get("end_time", "")
+    if not start_str or not end_str:
+        return None
+    try:
+        sp = start_str.split(":")
+        ep = end_str.split(":")
+        start_mins = int(sp[0]) * 60 + int(sp[1])
+        end_mins = int(ep[0]) * 60 + int(ep[1])
+    except (ValueError, IndexError):
+        return None
+    if end_mins <= start_mins:
+        end_mins += 24 * 60
+    return start_mins, end_mins
+
+
+def _format_time_until(delta_mins):
+    """Format minutes-until as a human-readable string: 'in 2h 15m', 'in 35m', 'in 1m'."""
+    delta_mins = max(1, delta_mins)  # round up sub-minute to "1m"
+    hours = delta_mins // 60
+    mins = delta_mins % 60
+    if hours and mins:
+        return f"in {hours}h {mins}m"
+    if hours:
+        return f"in {hours}h"
+    return f"in {mins}m"
+
+
+def _draw_event_line(ctx, center, y, font_size, max_width, label, title, r, g, b, alpha=1.0, icon=False):
+    """Draw a single event text line (with optional calendar icon or dot indicator).
+
+    Returns the y coordinate of the text baseline (for spacing calculations).
+    """
+    display_text = f"{label}: {title}"
+    ctx.select_font_face(_SANS_FONT, cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+    ctx.set_font_size(font_size)
+
+    # Truncate if too wide
+    extents = ctx.text_extents(display_text)
+    while extents.width > max_width and len(display_text) > 3:
+        display_text = display_text[:-2] + "\u2026"
+        extents = ctx.text_extents(display_text)
+
+    if icon:
+        # Calendar icon layout
+        icon_size = font_size * 0.8
+        icon_gap = font_size * 0.3
+        total_w = icon_size + icon_gap + extents.width
+        x = center - total_w / 2 + icon_size + icon_gap
+        text_y = y + extents.height / 2
+        icon_cx = x - icon_gap - icon_size / 2
+        icon_cy = text_y - extents.height / 2
+        _draw_calendar_icon(ctx, icon_cx, icon_cy, icon_size, r, g, b)
+    else:
+        # Small dot indicator layout
+        dot_r = font_size * 0.15
+        dot_gap = font_size * 0.35
+        total_w = dot_r * 2 + dot_gap + extents.width
+        x = center - total_w / 2 + dot_r * 2 + dot_gap
+        text_y = y + extents.height / 2
+        dot_cx = x - dot_gap - dot_r
+        dot_cy = text_y - extents.height * 0.35
+        ctx.arc(dot_cx, dot_cy, dot_r, 0, 2 * math.pi)
+        ctx.set_source_rgba(r, g, b, alpha)
+        ctx.fill()
+
+    # Shadow
+    ctx.set_source_rgba(0, 0, 0, 0.4)
+    ctx.select_font_face(_SANS_FONT, cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+    ctx.set_font_size(font_size)
+    ctx.move_to(x + 1, text_y + 1)
+    ctx.show_text(display_text)
+
+    # Text
+    ctx.set_source_rgba(r, g, b, alpha)
+    ctx.move_to(x, text_y)
+    ctx.show_text(display_text)
+
+    return text_y
+
+
 def draw_current_event(ctx, size, time_info, theme, agenda_events):
-    """Draw the currently active agenda event title on the clock face."""
+    """Draw the currently active event and/or next upcoming event on the clock face."""
     agenda_cfg = theme.get("agenda", {})
     if not agenda_cfg.get("show_current_event", False) or not agenda_events:
         return
 
     center = size / 2
     radius = size / 2
-
-    # Find the currently active event
     current_mins = time_info["hour"] * 60 + time_info["minute"]
+
+    # --- Find active event and next upcoming event ---
     active_event = None
+    next_event = None
+    next_delta = None
+    _MAX_NEXT_HOURS = 3
+
     for ev in agenda_events:
-        start_str = ev.get("start_time", "")
-        end_str = ev.get("end_time", "")
-        if not start_str or not end_str:
+        parsed = _parse_event_mins(ev)
+        if not parsed:
             continue
-        try:
-            sp = start_str.split(":")
-            ep = end_str.split(":")
-            start_mins = int(sp[0]) * 60 + int(sp[1])
-            end_mins = int(ep[0]) * 60 + int(ep[1])
-        except (ValueError, IndexError):
-            continue
-        if end_mins <= start_mins:
-            end_mins += 24 * 60
-        if start_mins <= current_mins < end_mins:
+        start_mins, end_mins = parsed
+
+        if not active_event and start_mins <= current_mins < end_mins:
             active_event = ev
-            break
+        elif not next_event and start_mins > current_mins:
+            delta = start_mins - current_mins
+            if delta <= _MAX_NEXT_HOURS * 60:
+                next_event = ev
+                next_delta = delta
 
-    if not active_event:
+    if not active_event and not next_event:
         return
 
-    title = active_event.get("title", "")
-    if not title:
-        return
-    title = "Now: " + title
-
-    color = active_event.get("color", "#4488ff")
-    r, g, b = _hex_to_rgb(color)
-
-    # Position: below clock_text if visible, otherwise below center
+    # --- Compute base Y position ---
     clock_text_cfg = theme.get("clock_text", {})
     if clock_text_cfg.get("visible", False):
         text_offset_y = clock_text_cfg.get("offset_y", 25) / 100 * radius
@@ -612,41 +687,50 @@ def draw_current_event(ctx, size, time_info, theme, agenda_events):
     else:
         y_pos = center + radius * 0.25
 
-    font_size = radius * 0.07
-    ctx.select_font_face(_SANS_FONT, cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
-    ctx.set_font_size(font_size)
+    primary_font = radius * 0.07
+    secondary_font = radius * 0.06
 
-    # Truncate title if too wide
-    display_title = title
-    extents = ctx.text_extents(display_title)
-    max_width = radius * 1.2
-    while extents.width > max_width and len(display_title) > 3:
-        display_title = display_title[:-2] + "\u2026"
-        extents = ctx.text_extents(display_title)
+    # --- Case 1: Active event exists ---
+    if active_event:
+        title = active_event.get("title", "")
+        if not title:
+            return
+        color = active_event.get("color", "#4488ff")
+        r, g, b = _hex_to_rgb(color)
 
-    # Account for calendar icon space in total width
-    icon_size = font_size * 0.8
-    icon_gap = font_size * 0.3
-    total_w = icon_size + icon_gap + extents.width
-    x = center - total_w / 2 + icon_size + icon_gap
-    y = y_pos + extents.height / 2
+        # Draw "Now" line (primary)
+        baseline = _draw_event_line(
+            ctx, center, y_pos, primary_font, radius * 1.2,
+            "Now", title, r, g, b, alpha=1.0, icon=True,
+        )
 
-    # Calendar icon — vertically centered with text
-    icon_cx = x - icon_gap - icon_size / 2
-    icon_cy = y - extents.height / 2
-    _draw_calendar_icon(ctx, icon_cx, icon_cy, icon_size, r, g, b)
+        # Draw "Next" line (secondary) below, using Now's color at 60% opacity
+        if next_event:
+            next_title = next_event.get("title", "")
+            if next_title:
+                time_str = _format_time_until(next_delta)
+                next_display = f"{next_title} {time_str}"
+                next_y = baseline + primary_font * 1.4
+                _draw_event_line(
+                    ctx, center, next_y, secondary_font, radius * 1.0,
+                    "Next", next_display, r, g, b, alpha=0.6, icon=False,
+                )
 
-    # Shadow
-    ctx.set_source_rgba(0, 0, 0, 0.4)
-    ctx.select_font_face(_SANS_FONT, cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
-    ctx.set_font_size(font_size)
-    ctx.move_to(x + 1, y + 1)
-    ctx.show_text(display_title)
+    # --- Case 2: No active event, but next event within 3h ---
+    else:
+        next_title = next_event.get("title", "")
+        if not next_title:
+            return
+        color = next_event.get("color", "#4488ff")
+        r, g, b = _hex_to_rgb(color)
+        time_str = _format_time_until(next_delta)
+        next_display = f"{next_title} {time_str}"
 
-    # Text in event color
-    ctx.set_source_rgb(r, g, b)
-    ctx.move_to(x, y)
-    ctx.show_text(display_title)
+        # Promote to primary position and style
+        _draw_event_line(
+            ctx, center, y_pos, primary_font, radius * 1.2,
+            "Next", next_display, r, g, b, alpha=1.0, icon=True,
+        )
 
 
 def draw_date_display(ctx, size, time_info, theme):

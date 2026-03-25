@@ -114,6 +114,65 @@ THEME_SCHEMA = {
         "opacity": (int, float),     # 0-100, fill opacity
         "show_current_event": bool,  # show active event title on clock face
     },
+    "dial": {
+        "arc_start": (int, float),       # degrees, 0=top, clockwise
+        "arc_end": (int, float),         # degrees, can exceed 360 for wrap
+        "thickness": (int, float),       # % of radius
+        "track_color": str,
+        "track_opacity": (int, float),   # 0-100
+        "progress_color": str,
+        "progress_opacity": (int, float),
+        "cap_style": str,               # "round", "butt", "square"
+        "style": str,                   # "solid", "dashed", "gradient"
+        "dash_length": (int, float),
+        "dash_gap": (int, float),
+        "gradient_end_color": str,
+        "radius": (int, float),          # % of half-display
+        "show_text": bool,
+        "text_color": str,
+        "text_font_size": (int, float),  # 0 = auto (11% of display)
+        "text_offset_y": (int, float),   # % of radius
+        "label_color": str,
+        "label_font_size": (int, float), # 0 = auto (4.5% of display)
+        "label_offset_y": (int, float),  # % of radius
+        "show_progress": bool,           # hide progress arc (hand-only mode)
+        "tick_marks": bool,
+        "major_tick_count": int,
+        "major_tick_inner_radius": (int, float),  # % of half-display
+        "major_tick_outer_radius": (int, float),
+        "major_tick_width": (int, float),
+        "major_tick_color": str,
+        "minor_ticks": bool,
+        "minor_tick_count": int,             # per major interval
+        "minor_tick_inner_radius": (int, float),
+        "minor_tick_outer_radius": (int, float),
+        "minor_tick_width": (int, float),
+        "minor_tick_color": str,
+        "show_hand": bool,
+        "hand_color": str,
+        "hand_width": (int, float),          # % of radius (base width)
+        "hand_length": (int, float),         # % of half-display (tip)
+        "hand_tail": (int, float),           # % of half-display (tail past centre)
+        "hand_style": str,                   # "line", "triangle", "needle"
+        "hand_center_dot": bool,
+        "hand_center_dot_radius": (int, float),  # % of half-display
+        "hand_center_dot_color": str,
+        "show_value": bool,
+        "value_color": str,
+        "value_font_size": (int, float),     # 0 = auto (7% of display)
+        "value_offset_y": (int, float),      # % of radius
+        "value_suffix": str,                 # e.g. "°F", "%"
+        "show_min_max": bool,
+        "min_max_color": str,
+        "min_max_font_size": (int, float),   # 0 = auto (3% of display)
+        "track_style": str,                  # "solid", "gradient", "zones"
+        "track_gradient_start": str,
+        "track_gradient_end": str,
+        "track_zones": list,                 # [{"from": 0, "to": 33, "color": "#hex"}, ...]
+        "animate": bool,
+        "animation_duration": (int, float),  # seconds
+        "animation_curve": str,          # "ease_out", "ease_in_out", "linear"
+    },
 }
 
 
@@ -224,6 +283,69 @@ DEFAULT_THEME = {
         "max_radius": 80,
         "opacity": 35,
         "show_current_event": False,
+    },
+    "dial": {
+        "arc_start": 135,
+        "arc_end": 405,
+        "thickness": 14,
+        "track_color": "#ffffff",
+        "track_opacity": 12,
+        "progress_color": "#00D68F",
+        "progress_opacity": 100,
+        "cap_style": "round",
+        "style": "solid",
+        "dash_length": 8,
+        "dash_gap": 4,
+        "gradient_end_color": "#ff4444",
+        "radius": 85,
+        "show_text": True,
+        "text_color": "#ffffff",
+        "text_font_size": 0,
+        "text_offset_y": -2,
+        "label_color": "#888888",
+        "label_font_size": 0,
+        "label_offset_y": 8,
+        "show_progress": True,
+        "tick_marks": False,
+        "major_tick_count": 10,
+        "major_tick_inner_radius": 72,
+        "major_tick_outer_radius": 78,
+        "major_tick_width": 2,
+        "major_tick_color": "#888888",
+        "minor_ticks": False,
+        "minor_tick_count": 4,
+        "minor_tick_inner_radius": 73,
+        "minor_tick_outer_radius": 77,
+        "minor_tick_width": 1,
+        "minor_tick_color": "#555555",
+        "show_hand": False,
+        "hand_color": "#ffffff",
+        "hand_width": 3,
+        "hand_length": 80,
+        "hand_tail": 10,
+        "hand_style": "triangle",
+        "hand_center_dot": True,
+        "hand_center_dot_radius": 4,
+        "hand_center_dot_color": "#333333",
+        "show_value": False,
+        "value_color": "#ffffff",
+        "value_font_size": 0,
+        "value_offset_y": 12,
+        "value_suffix": "",
+        "show_min_max": False,
+        "min_max_color": "#666666",
+        "min_max_font_size": 0,
+        "track_style": "solid",
+        "track_gradient_start": "#22c55e",
+        "track_gradient_end": "#ef4444",
+        "track_zones": [
+            {"from": 0, "to": 33, "color": "#22c55e"},
+            {"from": 33, "to": 66, "color": "#f59e0b"},
+            {"from": 66, "to": 100, "color": "#ef4444"},
+        ],
+        "animate": True,
+        "animation_duration": 0.5,
+        "animation_curve": "ease_out",
     },
 }
 
