@@ -25,6 +25,52 @@
         </div>
     </div>
 
+    <div class="flex flex-col lg:flex-row gap-4 lg:gap-6">
+
+    <!-- Dial Face List Sidebar -->
+    <div class="card w-full lg:w-56 flex-shrink-0 self-start order-1">
+        <h2 class="text-lg font-semibold mb-4">Dial Faces</h2>
+        <div class="space-y-2">
+            <template x-for="t in dialThemes" :key="t">
+                <div class="flex items-center justify-between p-2 rounded cursor-pointer hover:bg-slate-600"
+                     :class="{ 'bg-slate-600': editingDialTheme === t }"
+                     @click="loadDialTheme(t)">
+                    <span x-text="t" class="truncate"></span>
+                    <span x-show="t === activeDialTheme" class="text-xs bg-blue-600 px-2 py-0.5 rounded flex-shrink-0">Active</span>
+                </div>
+            </template>
+        </div>
+        <div class="mt-4 space-y-2">
+            <input x-model="newDialName" placeholder="New dial face name"
+                   class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+            <button @click="createDialTheme()"
+                    class="w-full bg-green-600 hover:bg-green-700 text-white text-sm px-3 py-1.5 rounded">
+                Create
+            </button>
+        </div>
+        <div class="mt-4 border-t border-slate-600 pt-4 space-y-2" x-show="editingDialTheme">
+            <button @click="activateDialTheme()"
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1.5 rounded">
+                Activate
+            </button>
+            <button @click="showDeleteConfirm = true"
+                    class="w-full bg-red-600 hover:bg-red-700 text-white text-sm px-3 py-1.5 rounded">
+                Delete
+            </button>
+            <button @click="exportDialTheme()"
+                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-3 py-1.5 rounded">
+                Export JSON
+            </button>
+            <label class="block w-full bg-teal-600 hover:bg-teal-700 text-white text-sm px-3 py-1.5 rounded text-center cursor-pointer">
+                Import JSON
+                <input type="file" accept=".json" @change="importDialTheme($event)" class="hidden">
+            </label>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="flex-1 min-w-0 order-2">
+
     <!-- Two Column Layout: Controls left, Preview right -->
     <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
 
@@ -58,52 +104,6 @@
                                    class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
                         </div>
                     </div>
-                    <!-- Text / Label -->
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-xs text-slate-400 mb-1">Text</label>
-                            <input type="text" x-model="dial.text" @input="saveDial()" placeholder="e.g. 72°F"
-                                   class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-xs text-slate-400 mb-1">Label</label>
-                            <input type="text" x-model="dial.label" @input="saveDial()" placeholder="e.g. Temperature"
-                                   class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
-                        </div>
-                    </div>
-                    <!-- Color Overrides -->
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-xs text-slate-400 mb-1">Progress Color</label>
-                            <div class="flex items-center gap-2">
-                                <input type="color" :value="dial.progress_color || appearance.progress_color"
-                                       @input="dial.progress_color = $event.target.value; saveDial()"
-                                       :disabled="!dial.progress_color" class="h-8 w-14 rounded flex-shrink-0">
-                                <span class="text-xs font-mono text-slate-500" x-text="dial.progress_color || 'theme'"></span>
-                            </div>
-                            <label class="toggle-switch mt-1.5">
-                                <input type="checkbox" :checked="!dial.progress_color"
-                                       @change="dial.progress_color = $event.target.checked ? null : appearance.progress_color; saveDial()">
-                                <div class="toggle-track"></div>
-                                <span class="ml-2 text-xs text-slate-500">Use theme default</span>
-                            </label>
-                        </div>
-                        <div>
-                            <label class="block text-xs text-slate-400 mb-1">Text Color</label>
-                            <div class="flex items-center gap-2">
-                                <input type="color" :value="dial.text_color || appearance.text_color"
-                                       @input="dial.text_color = $event.target.value; saveDial()"
-                                       :disabled="!dial.text_color" class="h-8 w-14 rounded flex-shrink-0">
-                                <span class="text-xs font-mono text-slate-500" x-text="dial.text_color || 'theme'"></span>
-                            </div>
-                            <label class="toggle-switch mt-1.5">
-                                <input type="checkbox" :checked="!dial.text_color"
-                                       @change="dial.text_color = $event.target.checked ? null : appearance.text_color; saveDial()">
-                                <div class="toggle-track"></div>
-                                <span class="ml-2 text-xs text-slate-500">Use theme default</span>
-                            </label>
-                        </div>
-                    </div>
                     <!-- Reset -->
                     <div class="pt-2 border-t border-slate-700">
                         <button @click="showResetConfirm = true"
@@ -114,16 +114,115 @@
                 </div>
             </div>
 
-            <!-- Dial Appearance (theme) -->
-            <div class="card">
+            <!-- Dial Appearance -->
+            <div class="card" x-show="dialTheme">
                 <div class="flex items-center justify-between mb-4">
                     <h2 class="text-lg font-semibold">Dial Appearance</h2>
                     <span class="text-xs text-green-400 transition-opacity duration-500"
                           :class="themeSaved ? 'opacity-100' : 'opacity-0'">Saved &#10003;</span>
                 </div>
                 <p class="text-xs text-slate-500 mb-4">
-                    Saved to the active theme (<span x-text="activeThemeName"></span>).
+                    Editing: <span x-text="editingDialTheme"></span>
                 </p>
+
+                <!-- Background -->
+                <div class="mb-3">
+                    <button @click="sections.background = !sections.background"
+                            class="flex items-center justify-between w-full text-sm font-medium text-slate-300 hover:text-white py-2">
+                        <span>Background</span>
+                        <span x-text="sections.background ? '&#9660;' : '&#9654;'" class="text-xs text-slate-500"></span>
+                    </button>
+                    <div x-show="sections.background" x-collapse class="space-y-3 pb-3">
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Type</label>
+                            <select x-model="dialTheme.background.type" @change="saveAppearance()"
+                                    class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                <option value="solid">Solid</option>
+                                <option value="gradient">Gradient</option>
+                                <option value="image">Image</option>
+                            </select>
+                        </div>
+
+                        <template x-if="dialTheme.background.type === 'solid'">
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">Color</label>
+                                <input type="color" x-model="dialTheme.background.color" @input="saveAppearance()" class="w-full h-8 rounded">
+                            </div>
+                        </template>
+
+                        <template x-if="dialTheme.background.type === 'gradient'">
+                            <div class="space-y-2">
+                                <label class="block text-xs text-slate-400 mb-1">Gradient Type</label>
+                                <select x-model="dialTheme.background.gradient_type" @change="saveAppearance()"
+                                        class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                    <option value="radial">Radial</option>
+                                    <option value="linear">Linear</option>
+                                </select>
+                                <template x-if="dialTheme.background.gradient_type === 'linear'">
+                                    <div>
+                                        <label class="block text-xs text-slate-400 mb-1">Angle: <span x-text="dialTheme.background.gradient_angle + '°'"></span></label>
+                                        <input type="range" x-model.number="dialTheme.background.gradient_angle" min="0" max="360" step="5" @input="saveAppearance()" class="w-full">
+                                    </div>
+                                </template>
+                                <template x-if="dialTheme.background.gradient_type === 'radial'">
+                                    <div class="space-y-1">
+                                        <label class="block text-xs text-slate-400">Center X: <span x-text="Math.round((dialTheme.background.gradient_center_x ?? 0.5) * 100) + '%'"></span></label>
+                                        <input type="range" x-model.number="dialTheme.background.gradient_center_x" min="0" max="1" step="0.05" @input="saveAppearance()" class="w-full">
+                                        <label class="block text-xs text-slate-400">Center Y: <span x-text="Math.round((dialTheme.background.gradient_center_y ?? 0.5) * 100) + '%'"></span></label>
+                                        <input type="range" x-model.number="dialTheme.background.gradient_center_y" min="0" max="1" step="0.05" @input="saveAppearance()" class="w-full">
+                                        <label class="block text-xs text-slate-400">Radius: <span x-text="Math.round((dialTheme.background.gradient_radius ?? 1.0) * 100) + '%'"></span></label>
+                                        <input type="range" x-model.number="dialTheme.background.gradient_radius" min="0.1" max="2" step="0.05" @input="saveAppearance()" class="w-full">
+                                    </div>
+                                </template>
+
+                                <!-- Gradient preview bar -->
+                                <label class="block text-xs text-slate-400 mb-1">Preview</label>
+                                <div class="relative h-6 rounded border border-slate-500"
+                                     :style="'background: linear-gradient(to right, ' + getBgGradientStops().map(s => s.color + ' ' + (s.position * 100) + '%').join(', ') + ')'">
+                                    <template x-for="(s, i) in getBgGradientStops()" :key="i">
+                                        <div class="absolute top-full mt-0.5 w-2 h-2 -ml-1 border border-slate-400 rounded-sm"
+                                             :style="'left: ' + (s.position * 100) + '%; background: ' + s.color">
+                                        </div>
+                                    </template>
+                                </div>
+
+                                <!-- Color stops list -->
+                                <label class="block text-xs text-slate-400 mt-3 mb-1">Color Stops</label>
+                                <template x-for="(stop, i) in getBgGradientStops()" :key="'bgstop-' + i">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <input type="color" :value="stop.color" @input="updateBgGradientStop(i, 'color', $event.target.value)" class="h-7 w-10 rounded flex-shrink-0">
+                                        <div class="flex-1 min-w-0">
+                                            <input type="range" :value="stop.position * 100" @input="updateBgGradientStop(i, 'position', $event.target.value / 100)" min="0" max="100" step="1" class="w-full">
+                                        </div>
+                                        <span class="text-xs text-slate-400 w-8 text-right" x-text="Math.round(stop.position * 100) + '%'"></span>
+                                        <button @click="removeBgGradientStop(i)" class="text-red-400 hover:text-red-300 text-xs flex-shrink-0"
+                                                x-show="getBgGradientStops().length > 2">&#10005;</button>
+                                    </div>
+                                </template>
+                                <button @click="addBgGradientStop()" class="text-xs text-blue-400 hover:text-blue-300">+ Add color stop</button>
+                            </div>
+                        </template>
+
+                        <template x-if="dialTheme.background.type === 'image'">
+                            <div class="space-y-2">
+                                <label class="block text-xs text-slate-400 mb-1">Upload Background Image</label>
+                                <input type="file" accept="image/*" @change="uploadBgImage($event)" class="text-xs text-slate-400">
+                                <p class="text-xs text-slate-500 truncate max-w-full" x-show="dialTheme.background.image" :title="dialTheme.background.image" x-text="'Current: ' + (dialTheme.background.image || '').split(/[\\/]/).pop()"></p>
+                                <label class="block text-xs text-slate-400 mb-1">Image Opacity: <span x-text="dialTheme.background.image_opacity + '%'"></span></label>
+                                <input type="range" x-model.number="dialTheme.background.image_opacity" min="0" max="100" step="5" @input="saveAppearance()" class="w-full mb-1">
+                                <label class="block text-xs text-slate-400 mb-1">Fallback Color</label>
+                                <input type="color" x-model="dialTheme.background.color" @input="saveAppearance()" class="w-full h-8 rounded">
+                            </div>
+                        </template>
+
+                        <template x-if="dialTheme.background.type !== 'image'">
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">Background Opacity: <span x-text="dialTheme.background.color_opacity + '%'"></span></label>
+                                <input type="range" x-model.number="dialTheme.background.color_opacity" min="0" max="100" step="5" @input="saveAppearance()" class="w-full">
+                            </div>
+                        </template>
+                    </div>
+                </div>
 
                 <!-- Arc Geometry -->
                 <div class="mb-3">
@@ -259,7 +358,6 @@
                                     class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
                                 <option value="round">Round</option>
                                 <option value="butt">Butt</option>
-                                <option value="square">Square</option>
                             </select>
                         </div>
                         <div>
@@ -313,6 +411,18 @@
                         <template x-if="appearance.show_text">
                             <div class="space-y-3">
                                 <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-xs text-slate-400 mb-1">Text</label>
+                                        <input type="text" x-model="dial.text" @input="saveDial()" placeholder="e.g. 72°F"
+                                               class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs text-slate-400 mb-1">Label</label>
+                                        <input type="text" x-model="dial.label" @input="saveDial()" placeholder="e.g. Temperature"
+                                               class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-4">
                                     <div class="flex items-center gap-3">
                                         <label class="block text-xs text-slate-400 flex-shrink-0">Text Color</label>
                                         <input type="color" x-model="appearance.text_color" @input="saveAppearance()" class="h-8 w-14 rounded">
@@ -339,13 +449,13 @@
                                         <label class="flex items-center justify-between text-xs text-slate-400 mb-1">
                                             <span>Text Offset Y</span><span x-text="appearance.text_offset_y + '%'"></span>
                                         </label>
-                                        <input type="range" x-model.number="appearance.text_offset_y" min="-50" max="50" step="1" @input="saveAppearance()" class="w-full">
+                                        <input type="range" x-model.number="appearance.text_offset_y" min="-100" max="100" step="1" @input="saveAppearance()" class="w-full">
                                     </div>
                                     <div>
                                         <label class="flex items-center justify-between text-xs text-slate-400 mb-1">
                                             <span>Label Offset Y</span><span x-text="appearance.label_offset_y + '%'"></span>
                                         </label>
-                                        <input type="range" x-model.number="appearance.label_offset_y" min="-50" max="50" step="1" @input="saveAppearance()" class="w-full">
+                                        <input type="range" x-model.number="appearance.label_offset_y" min="-100" max="100" step="1" @input="saveAppearance()" class="w-full">
                                     </div>
                                 </div>
                             </div>
@@ -382,7 +492,7 @@
                                         <label class="flex items-center justify-between text-xs text-slate-400 mb-1">
                                             <span>Offset Y</span><span x-text="appearance.value_offset_y + '%'"></span>
                                         </label>
-                                        <input type="range" x-model.number="appearance.value_offset_y" min="-50" max="50" step="1" @input="saveAppearance()" class="w-full">
+                                        <input type="range" x-model.number="appearance.value_offset_y" min="-100" max="100" step="1" @input="saveAppearance()" class="w-full">
                                     </div>
                                 </div>
                             </div>
@@ -654,6 +764,20 @@
             </div>
         </div>
     </div>
+
+    <!-- Delete Dial Face Modal -->
+    <div x-show="showDeleteConfirm" x-cloak class="fixed inset-0 bg-black/60 flex items-center justify-center z-50" @click.self="showDeleteConfirm = false">
+        <div class="bg-slate-800 rounded-lg shadow-xl p-6 w-full max-w-sm mx-4">
+            <h3 class="text-lg font-semibold mb-2">Delete Dial Face?</h3>
+            <p class="text-sm text-slate-400 mb-4">Are you sure you want to delete "<span x-text="editingDialTheme"></span>"?</p>
+            <div class="flex justify-end gap-3">
+                <button @click="showDeleteConfirm = false"
+                        class="px-4 py-2 rounded text-sm bg-slate-700 hover:bg-slate-600 transition-colors">Cancel</button>
+                <button @click="deleteDialTheme()"
+                        class="px-4 py-2 rounded text-sm bg-red-600 hover:bg-red-700 text-white transition-colors">Delete</button>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
@@ -662,58 +786,45 @@
 function dialManager() {
     return {
         displayMode: '{{ display_mode }}',
-        activeThemeName: '{{ active_theme }}',
         showResetConfirm: false,
+        showDeleteConfirm: false,
         themeSaved: false,
         _saveTimer: null,
 
-        // Collapsible sections (open by default: arc + progress)
-        sections: { arc: true, track: false, progress: true, text: false, ticks: false, hand: false, animation: false },
+        // Dial face list
+        dialThemes: {{ dial_themes | tojson }},
+        activeDialTheme: '{{ active_dial_theme }}',
+        editingDialTheme: '{{ active_dial_theme }}',
+        newDialName: '',
+
+        // The full dial theme object being edited
+        dialTheme: null,
+
+        // Getter alias so all `appearance.xxx` bindings keep working
+        get appearance() { return this.dialTheme ? this.dialTheme.dial : {}; },
+
+        // Collapsible sections
+        sections: { background: false, arc: true, track: false, progress: true, text: true, ticks: false, hand: false, animation: false },
 
         // Runtime dial state
         dial: { progress: 0, min_value: 0, max_value: 100, text: '', label: '', progress_color: null, text_color: null },
-
-        // Theme appearance (dial section of active theme)
-        appearance: {
-            arc_start: 135, arc_end: 405, thickness: 14,
-            track_color: '#ffffff', track_opacity: 12,
-            track_style: 'solid',
-            track_gradient_start: '#22c55e', track_gradient_end: '#ef4444',
-            track_zones: [{from: 0, to: 33, color: '#22c55e'}, {from: 33, to: 66, color: '#f59e0b'}, {from: 66, to: 100, color: '#ef4444'}],
-            show_progress: true,
-            progress_color: '#00D68F', progress_opacity: 100,
-            cap_style: 'round', style: 'solid',
-            dash_length: 8, dash_gap: 4, gradient_end_color: '#ff4444',
-            radius: 85, show_text: true,
-            text_color: '#ffffff', text_font_size: 0, text_offset_y: -2,
-            label_color: '#888888', label_font_size: 0, label_offset_y: 8,
-            show_value: false, value_color: '#ffffff', value_font_size: 0, value_offset_y: 12, value_suffix: '',
-            show_min_max: false, min_max_color: '#666666', min_max_font_size: 0,
-            tick_marks: false,
-            major_tick_count: 10, major_tick_inner_radius: 72, major_tick_outer_radius: 78, major_tick_width: 2, major_tick_color: '#888888',
-            minor_ticks: false, minor_tick_count: 4, minor_tick_inner_radius: 73, minor_tick_outer_radius: 77, minor_tick_width: 1, minor_tick_color: '#555555',
-            show_hand: false, hand_color: '#ffffff', hand_width: 3, hand_length: 80, hand_tail: 10, hand_style: 'triangle',
-            hand_center_dot: true, hand_center_dot_radius: 4, hand_center_dot_color: '#333333',
-            animate: true, animation_duration: 0.5, animation_curve: 'ease_out',
-        },
 
         // Canvas preview state
         _previewCtx: null,
         _rafId: null,
         _animProgress: 0,
         _animTarget: 0,
-        _animStart: 0,
-        _animFrom: 0,
 
         async init() {
-            const [dialResp, themeResp, settingsResp] = await Promise.all([
-                fetch('/api/dial'), fetch('/api/themes/' + encodeURIComponent(this.activeThemeName)), fetch('/api/settings')
+            const [dialResp, settingsResp] = await Promise.all([
+                fetch('/api/dial'), fetch('/api/settings')
             ]);
             this.dial = await dialResp.json();
-            const theme = await themeResp.json();
             const settings = await settingsResp.json();
             this.displayMode = settings.display_mode || 'clock';
-            if (theme.dial) Object.assign(this.appearance, theme.dial);
+
+            // Load the active dial theme
+            await this.loadDialTheme(this.activeDialTheme);
 
             // Init canvas
             const canvas = document.getElementById('dialPreview');
@@ -721,6 +832,83 @@ function dialManager() {
             this._animProgress = this._progressPct();
             this._animTarget = this._animProgress;
             this._startPreview();
+        },
+
+        // --- Dial Face Management ---
+        async loadDialTheme(name) {
+            this.editingDialTheme = name;
+            const resp = await fetch('/api/dial-themes/' + encodeURIComponent(name));
+            if (resp.ok) {
+                this.dialTheme = await resp.json();
+            }
+        },
+
+        async createDialTheme() {
+            const name = this.newDialName.trim();
+            if (!name) return;
+            const resp = await fetch('/api/dial-themes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name }),
+            });
+            if (resp.ok) {
+                this.dialThemes.push(name);
+                this.dialThemes.sort();
+                this.newDialName = '';
+                await this.loadDialTheme(name);
+            }
+        },
+
+        async activateDialTheme() {
+            const name = this.editingDialTheme;
+            const resp = await fetch('/api/dial-themes/' + encodeURIComponent(name) + '/activate', { method: 'POST' });
+            if (resp.ok) {
+                this.activeDialTheme = name;
+            }
+        },
+
+        async deleteDialTheme() {
+            this.showDeleteConfirm = false;
+            const name = this.editingDialTheme;
+            const resp = await fetch('/api/dial-themes/' + encodeURIComponent(name), { method: 'DELETE' });
+            if (resp.ok) {
+                this.dialThemes = this.dialThemes.filter(t => t !== name);
+                if (this.activeDialTheme === name) this.activeDialTheme = 'Default Dial';
+                await this.loadDialTheme(this.dialThemes[0] || 'Default Dial');
+            }
+        },
+
+        async exportDialTheme() {
+            const resp = await fetch('/api/dial-themes/' + encodeURIComponent(this.editingDialTheme));
+            if (!resp.ok) return;
+            const data = await resp.json();
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = this.editingDialTheme + '.json';
+            a.click();
+            URL.revokeObjectURL(a.href);
+        },
+
+        async importDialTheme(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const text = await file.text();
+            const resp = await fetch('/api/dial-themes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: text,
+            });
+            if (resp.ok) {
+                const theme = await resp.json();
+                const name = theme.name;
+                if (!this.dialThemes.includes(name)) {
+                    this.dialThemes.push(name);
+                    this.dialThemes.sort();
+                }
+                await this.loadDialTheme(name);
+            }
+            event.target.value = '';
         },
 
         // --- Mode ---
@@ -763,17 +951,65 @@ function dialManager() {
         },
 
         async _doSaveAppearance() {
-            const name = this.activeThemeName;
-            const themeResp = await fetch('/api/themes/' + encodeURIComponent(name));
-            const theme = await themeResp.json();
-            theme.dial = { ...this.appearance };
-            await fetch('/api/themes/' + encodeURIComponent(name), {
+            if (!this.dialTheme) return;
+            const name = this.editingDialTheme;
+            await fetch('/api/dial-themes/' + encodeURIComponent(name), {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(theme),
+                body: JSON.stringify(this.dialTheme),
             });
             this.themeSaved = true;
             setTimeout(() => this.themeSaved = false, 1500);
+        },
+
+        // --- Background gradient helpers ---
+        getBgGradientStops() {
+            if (!this.dialTheme) return [];
+            const bg = this.dialTheme.background;
+            if (bg.color_stops && bg.color_stops.length >= 2) return bg.color_stops;
+            const colors = bg.colors || ['#0f172a', '#1e293b'];
+            return colors.map((c, i) => ({ color: c, position: i / Math.max(colors.length - 1, 1) }));
+        },
+
+        updateBgGradientStop(idx, field, value) {
+            if (!this.dialTheme) return;
+            const stops = this.getBgGradientStops();
+            stops[idx][field] = value;
+            this.dialTheme.background.color_stops = [...stops];
+            this.dialTheme.background.colors = stops.map(s => s.color);
+            this.saveAppearance();
+        },
+
+        addBgGradientStop() {
+            if (!this.dialTheme) return;
+            const stops = this.getBgGradientStops();
+            stops.push({ color: '#888888', position: 1 });
+            this.dialTheme.background.color_stops = [...stops];
+            this.dialTheme.background.colors = stops.map(s => s.color);
+            this.saveAppearance();
+        },
+
+        removeBgGradientStop(idx) {
+            if (!this.dialTheme) return;
+            const stops = this.getBgGradientStops();
+            if (stops.length <= 2) return;
+            stops.splice(idx, 1);
+            this.dialTheme.background.color_stops = [...stops];
+            this.dialTheme.background.colors = stops.map(s => s.color);
+            this.saveAppearance();
+        },
+
+        async uploadBgImage(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const fd = new FormData();
+            fd.append('image', file);
+            const resp = await fetch('/upload', { method: 'POST', body: fd });
+            if (resp.ok) {
+                const data = await resp.json();
+                this.dialTheme.background.image = data.path;
+                this.saveAppearance();
+            }
         },
 
         // --- Preview rendering ---
@@ -798,14 +1034,14 @@ function dialManager() {
                 this._animProgress = target;
                 return;
             }
-            // Smooth lerp
             this._animProgress += (target - this._animProgress) * 0.12;
         },
 
         _drawDial() {
             const ctx = this._previewCtx;
-            if (!ctx) return;
+            if (!ctx || !this.dialTheme) return;
             const a = this.appearance;
+            const bg = this.dialTheme.background;
             const size = 360;
             const center = size / 2;
             const dpr = window.devicePixelRatio || 1;
@@ -824,8 +1060,35 @@ function dialManager() {
             ctx.arc(center, center, center, 0, Math.PI * 2);
             ctx.clip();
 
-            ctx.fillStyle = '#0f172a';
-            ctx.fillRect(0, 0, size, size);
+            // --- Background from dial theme ---
+            const bgType = bg.type || 'solid';
+            const colorOpacity = (bg.color_opacity ?? 100) / 100;
+            if (bgType === 'gradient') {
+                const stops = this.getBgGradientStops();
+                const gradType = bg.gradient_type || 'radial';
+                let grad;
+                if (gradType === 'radial') {
+                    const cx = (bg.gradient_center_x ?? 0.5) * size;
+                    const cy = (bg.gradient_center_y ?? 0.5) * size;
+                    const r = (bg.gradient_radius ?? 1.0) * center;
+                    grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+                } else {
+                    const angle = (bg.gradient_angle || 0) * Math.PI / 180;
+                    const dx = Math.cos(angle) * center;
+                    const dy = Math.sin(angle) * center;
+                    grad = ctx.createLinearGradient(center - dx, center - dy, center + dx, center + dy);
+                }
+                for (const s of stops) grad.addColorStop(s.position, s.color);
+                ctx.globalAlpha = colorOpacity;
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, size, size);
+                ctx.globalAlpha = 1;
+            } else {
+                ctx.globalAlpha = colorOpacity;
+                ctx.fillStyle = bg.color || '#0f172a';
+                ctx.fillRect(0, 0, size, size);
+                ctx.globalAlpha = 1;
+            }
 
             const radius = a.radius / 100 * center;
             const thickness = a.thickness / 100 * radius;
@@ -918,7 +1181,6 @@ function dialManager() {
                 ctx.lineCap = 'butt';
                 const majCount = a.major_tick_count || 10;
                 if (majCount >= 2) {
-                    // Minor ticks (behind majors)
                     if (a.minor_ticks && a.minor_tick_count > 0) {
                         const minInner = (a.minor_tick_inner_radius || 73) / 100 * half;
                         const minOuter = (a.minor_tick_outer_radius || 77) / 100 * half;
@@ -936,7 +1198,6 @@ function dialManager() {
                             }
                         }
                     }
-                    // Major ticks
                     const majInner = (a.major_tick_inner_radius || 72) / 100 * half;
                     const majOuter = (a.major_tick_outer_radius || 78) / 100 * half;
                     ctx.strokeStyle = a.major_tick_color || '#888888';
@@ -955,7 +1216,7 @@ function dialManager() {
             const handAngle = startRad + sweep * (progress / 100);
             if (a.show_hand) {
                 const tipR = (a.hand_length || 80) / 100 * half;
-                const tailR = (a.hand_tail || 10) / 100 * half;
+                const tailR = (a.hand_tail ?? 10) / 100 * half;
                 const baseW = (a.hand_width || 3) / 100 * radius;
                 const cosA = Math.cos(handAngle);
                 const sinA = Math.sin(handAngle);
@@ -996,7 +1257,6 @@ function dialManager() {
                     ctx.closePath();
                     ctx.fill();
                 } else {
-                    // Triangle
                     ctx.beginPath();
                     ctx.moveTo(tipX, tipY);
                     ctx.lineTo(tailX + baseW * cosP, tailY + baseW * sinP);
@@ -1033,7 +1293,7 @@ function dialManager() {
             // --- Value text ---
             if (a.show_value) {
                 const valSize = a.value_font_size || Math.round(size * 0.07);
-                const valY = center + (a.value_offset_y || 12) / 100 * radius;
+                const valY = center + (a.value_offset_y ?? 12) / 100 * radius;
                 const valStr = this.dial.progress + (a.value_suffix || '');
                 ctx.fillStyle = a.value_color || '#ffffff';
                 ctx.font = `bold ${valSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
@@ -1058,7 +1318,7 @@ function dialManager() {
                 ctx.fillText(String(this.dial.max_value), maxX, maxY);
             }
 
-            // --- Hand center dot (last, for visual hierarchy) ---
+            // --- Hand center dot ---
             if (a.show_hand && a.hand_center_dot) {
                 const dotR = (a.hand_center_dot_radius || 4) / 100 * half;
                 ctx.beginPath();

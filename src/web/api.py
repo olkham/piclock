@@ -419,6 +419,105 @@ def create_api_blueprint():
         write_nudge()
         return jsonify({"status": "ok"})
 
+    # --- Dial Themes ---
+
+    @bp.route("/dial-themes", methods=["GET"])
+    def list_dial_themes():
+        dtm = current_app.dial_theme_manager
+        names = dtm.list_themes()
+        active = current_app.settings.get("active_dial_theme", "Default Dial")
+        return jsonify({"themes": names, "active": active})
+
+    @bp.route("/dial-themes/<name>", methods=["GET"])
+    def get_dial_theme(name):
+        dtm = current_app.dial_theme_manager
+        theme = dtm.get_theme(name)
+        if theme is None:
+            return jsonify({"error": "Dial theme not found"}), 404
+        return jsonify(theme)
+
+    @bp.route("/dial-themes", methods=["POST"])
+    def create_dial_theme():
+        from src.alarms.ipc import write_nudge
+        dtm = current_app.dial_theme_manager
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "Invalid JSON body"}), 400
+        try:
+            theme = dtm.save_theme(data)
+            write_nudge()
+            return jsonify(theme), 201
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+
+    @bp.route("/dial-themes/<name>", methods=["PUT"])
+    def update_dial_theme(name):
+        from src.alarms.ipc import write_nudge
+        dtm = current_app.dial_theme_manager
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "Invalid JSON body"}), 400
+        data["name"] = name
+        try:
+            theme = dtm.save_theme(data)
+            write_nudge()
+            return jsonify(theme)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+
+    @bp.route("/dial-themes/<name>", methods=["DELETE"])
+    def delete_dial_theme(name):
+        from src.alarms.ipc import write_nudge
+        dtm = current_app.dial_theme_manager
+        try:
+            dtm.delete_theme(name)
+            write_nudge()
+            return jsonify({"status": "ok"})
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+
+    @bp.route("/dial-themes/<name>/activate", methods=["POST"])
+    def activate_dial_theme(name):
+        from src.alarms.ipc import write_nudge
+        dtm = current_app.dial_theme_manager
+        try:
+            dtm.set_active(name)
+            write_nudge()
+            return jsonify({"status": "ok", "active": name})
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+
+    @bp.route("/dial-themes/<name>/export", methods=["GET"])
+    def export_dial_theme(name):
+        dtm = current_app.dial_theme_manager
+        try:
+            json_str = dtm.export_theme(name)
+            return Response(
+                json_str,
+                mimetype="application/json",
+                headers={"Content-Disposition": f"attachment; filename={name}.json"},
+            )
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 404
+
+    @bp.route("/dial-themes/import", methods=["POST"])
+    def import_dial_theme():
+        from src.alarms.ipc import write_nudge
+        dtm = current_app.dial_theme_manager
+        if request.content_type and "multipart" in request.content_type:
+            if "file" not in request.files:
+                return jsonify({"error": "No file part"}), 400
+            file = request.files["file"]
+            json_str = file.read().decode("utf-8")
+        else:
+            json_str = request.get_data(as_text=True)
+        try:
+            theme = dtm.import_theme(json_str)
+            write_nudge()
+            return jsonify(theme), 201
+        except (json.JSONDecodeError, ValueError) as e:
+            return jsonify({"error": str(e)}), 400
+
     # --- System (reboot / shutdown) ---
 
     @bp.route("/reboot", methods=["POST"])

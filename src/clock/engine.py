@@ -14,6 +14,7 @@ from src.alarms.ipc import check_nudge, read_dial_state
 from src.clock.renderer import render_frame
 from src.clock.dial import render_dial_frame
 from src.clock.display import show_frame_from_buffer
+from src.themes.dial_manager import DialThemeManager
 
 
 def _ease_in_out(t):
@@ -46,6 +47,7 @@ class ClockEngine:
 
     def __init__(self, theme_manager, settings):
         self._theme_manager = theme_manager
+        self._dial_theme_manager = DialThemeManager(settings)
         self._settings = settings
         self._running = False
         self._alarm_callback = None
@@ -76,6 +78,7 @@ class ClockEngine:
         self._alarm_scheduler = None
         # Dial mode state
         self._cfg_display_mode = "clock"
+        self._cfg_dial_theme = None
         self._dial_state = None
         self._dial_current_progress = 0.0
         self._dial_target_progress = 0.0
@@ -273,7 +276,7 @@ class ClockEngine:
                 _t0 = time.monotonic()
 
             if self._cfg_display_mode == "dial":
-                rgb_buf = self._render_dial(theme)
+                rgb_buf = self._render_dial(self._cfg_dial_theme or {})
             else:
                 rgb_buf = render_frame(
                     time_info, theme,
@@ -306,7 +309,7 @@ class ClockEngine:
             if self._alarm_active or tz_transitioning or dial_animating:
                 target_fps = self._cfg_animation_fps
             elif self._cfg_display_mode == "dial":
-                target_fps = self._cfg_idle_fps
+                target_fps = self._cfg_smooth_fps
             elif smooth:
                 target_fps = self._cfg_smooth_fps
             else:
@@ -318,6 +321,11 @@ class ClockEngine:
             next_frame += frame_interval
             now_mono = time.monotonic()
             sleep_time = next_frame - now_mono
+            # Cap sleep to ~1.5 frames at current rate so FPS transitions
+            # (e.g. idle -> animation) respond without a stale long sleep.
+            if sleep_time > frame_interval * 1.5:
+                next_frame = now_mono + frame_interval
+                sleep_time = frame_interval
 
             # Run gen-0 GC during frame slack (>3ms headroom) to prevent
             # automatic GC pauses during rendering that cause visible stutter.
@@ -331,8 +339,9 @@ class ClockEngine:
                 # Fell behind — reset to avoid burst of catch-up frames
                 next_frame = time.monotonic()
 
-    def _render_dial(self, theme):
+    def _render_dial(self, dial_theme):
         """Read dial state, animate progress, and render dial frame."""
+        dial_cfg = dial_theme.get("dial", {})
         # Lazy-load dial state (re-read on nudge or first call)
         if self._dial_state is None:
             self._dial_state = read_dial_state()
@@ -346,11 +355,10 @@ class ClockEngine:
                 self._dial_anim_from = self._dial_current_progress
                 self._dial_target_progress = pct
                 self._dial_anim_start = time.monotonic()
-                dial_cfg = theme.get("dial", {})
                 self._dial_anim_duration = dial_cfg.get("animation_duration", 0.5)
 
         # Animate progress
-        animate = theme.get("dial", {}).get("animate", True)
+        animate = dial_cfg.get("animate", True)
         if animate and self._dial_current_progress != self._dial_target_progress:
             elapsed = time.monotonic() - self._dial_anim_start
             duration = self._dial_anim_duration
@@ -365,7 +373,7 @@ class ClockEngine:
         else:
             self._dial_current_progress = self._dial_target_progress
 
-        return render_dial_frame(theme, self._dial_state, self._dial_current_progress)
+        return render_dial_frame(dial_theme, self._dial_state, self._dial_current_progress)
 
     def _maybe_reload_render_settings(self):
         """Reload FPS and timezone settings from storage every 2 seconds (not per-frame)."""
@@ -389,6 +397,7 @@ class ClockEngine:
                 self._cfg_tz = ZoneInfo("UTC")
         self._cfg_display_mode = self._settings.get("display_mode", "clock") or "clock"
         self._cfg_theme = self._theme_manager.get_active_theme()
+        self._cfg_dial_theme = self._dial_theme_manager.get_active_theme()
         # Poll alarm scheduler (replaces timer thread — no GIL contention)
         if self._alarm_scheduler:
             self._alarm_scheduler.poll()

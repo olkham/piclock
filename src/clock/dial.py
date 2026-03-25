@@ -87,11 +87,11 @@ def _ease_in_out(t):
 # Main render function
 # ---------------------------------------------------------------------------
 
-def render_dial_frame(theme, dial_state, display_progress):
+def render_dial_frame(dial_theme, dial_state, display_progress):
     """Render a single dial frame.
 
     Args:
-        theme: Active theme dict (background + dial section).
+        dial_theme: Active dial theme dict (background + dial section).
         dial_state: Current dial state dict (progress, text, label, overrides).
         display_progress: The interpolated progress value (0-100) to render,
                          already accounting for animation.
@@ -107,13 +107,13 @@ def render_dial_frame(theme, dial_state, display_progress):
 
     size = DISPLAY_SIZE
     center = size / 2
-    dial_cfg = theme.get("dial", {})
+    dial_cfg = dial_theme.get("dial", {})
 
     ctx = cairo.Context(_frame_surface)
 
-    # --- Background (reuse theme's background) ---
+    # --- Background (from dial theme's own background section) ---
     ctx.set_operator(cairo.OPERATOR_SOURCE)
-    draw_background(ctx, size, theme)
+    draw_background(ctx, size, dial_theme)
     ctx.set_operator(cairo.OPERATOR_OVER)
 
     # --- Arc geometry ---

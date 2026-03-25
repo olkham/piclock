@@ -1,4 +1,5 @@
 """Theme schema definition and validation."""
+import copy
 
 THEME_SCHEMA = {
     "name": str,
@@ -362,9 +363,42 @@ def validate_theme(theme):
     return errors
 
 
+# Reuse the same validator for dial themes
+validate_dial_theme = validate_theme
+
+
 def merge_with_defaults(theme):
     """Deep merge a partial theme with DEFAULT_THEME, filling missing values."""
     return _deep_merge(DEFAULT_THEME, theme)
+
+
+def merge_dial_theme_with_defaults(dial_theme):
+    """Deep merge a partial dial theme with DEFAULT_DIAL_THEME."""
+    return _deep_merge(DEFAULT_DIAL_THEME, dial_theme)
+
+
+# ---------------------------------------------------------------------------
+# Standalone dial theme — independent of clock themes
+# ---------------------------------------------------------------------------
+
+DEFAULT_DIAL_THEME = {
+    "name": "Default Dial",
+    "background": {
+        "type": "solid",
+        "color": "#0f172a",
+        "colors": ["#0f172a", "#1e293b"],
+        "gradient_type": "radial",
+        "gradient_angle": 0,
+        "gradient_center_x": 0.5,
+        "gradient_center_y": 0.5,
+        "gradient_radius": 1.0,
+        "color_stops": [],
+        "image": "",
+        "image_opacity": 100,
+        "color_opacity": 100,
+    },
+    "dial": copy.deepcopy(DEFAULT_THEME["dial"]),
+}
 
 
 def _deep_merge(base, override):

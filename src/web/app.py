@@ -4,6 +4,7 @@ import os
 
 from flask import Flask
 
+from src.themes.dial_manager import DialThemeManager
 from src.web.api import create_api_blueprint
 from src.web.views import create_views_blueprint
 
@@ -19,6 +20,7 @@ def create_app(theme_manager, settings):
 
     # Store shared objects for access in routes
     app.theme_manager = theme_manager
+    app.dial_theme_manager = DialThemeManager(settings)
     app.settings = settings
 
     # Register blueprints
