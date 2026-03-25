@@ -1,11 +1,13 @@
 {
   "timezone": "Etc/GMT",
   "active_theme": "outside-in",
-  "render_smooth_fps": 30,
-  "render_animation_fps": 30,
+  "render_smooth_fps": 20,
+  "render_animation_fps": 20,
   "render_idle_fps": 1,
   "render_bypass_compositor": false,
   "theme_cycle_enabled": false,
   "theme_cycle_interval": 3600,
-  "theme_cycle_random": false
+  "theme_cycle_random": false,
+  "display_mode": "dial",
+  "active_dial_theme": "Default Dial"
 }

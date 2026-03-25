@@ -308,8 +308,6 @@ class ClockEngine:
                               and self._dial_current_progress != self._dial_target_progress)
             if self._alarm_active or tz_transitioning or dial_animating:
                 target_fps = self._cfg_animation_fps
-            elif self._cfg_display_mode == "dial":
-                target_fps = self._cfg_smooth_fps
             elif smooth:
                 target_fps = self._cfg_smooth_fps
             else:
