@@ -85,6 +85,8 @@ class ClockEngine:
         self._dial_anim_start = 0.0
         self._dial_anim_from = 0.0
         self._dial_anim_duration = 0.5
+        self._dial_frame_dirty = True   # True = must re-render dial
+        self._dial_cached_buf = None    # last rendered RGB buffer
 
     def set_alarm_scheduler(self, scheduler):
         """Attach alarm scheduler for polling from the render loop."""
@@ -213,70 +215,80 @@ class ClockEngine:
                 self._agenda_last_load = 0
                 self._render_settings_last_load = 0
                 self._dial_state = None  # force reload
+                self._dial_frame_dirty = True
 
             # Reload cached settings periodically (every 2s, not per-frame)
             self._maybe_reload_render_settings()
 
-            # Get current time using cached ZoneInfo (no per-frame try/except)
-            now = datetime.now(self._cfg_tz)
-            tz_name = self._cfg_timezone
-
-            time_info["hour"] = now.hour
-            time_info["minute"] = now.minute
-            time_info["second"] = now.second
-            time_info["microsecond"] = now.microsecond
-
-            # Detect timezone change and start transition animation
-            if self._last_tz_name is not None and tz_name != self._last_tz_name:
-                try:
-                    old_tz = ZoneInfo(self._last_tz_name)
-                    old_now = datetime.now(old_tz)
-                    old_time_info = {
-                        "hour": old_now.hour,
-                        "minute": old_now.minute,
-                        "second": old_now.second,
-                        "microsecond": old_now.microsecond,
-                    }
-                    self._tz_old_angles = _compute_hand_angles(old_time_info)
-                    self._tz_transition_start = time.time()
-                except Exception:
-                    self._tz_old_angles = None
-            self._last_tz_name = tz_name
-
-            # Apply timezone transition animation (per-hand independent shortest path)
+            # --- Clock-only work (skip entirely in dial mode) ---
             tz_transitioning = False
             hand_angles = None
-            if self._tz_old_angles is not None:
-                elapsed = time.time() - self._tz_transition_start
-                if elapsed < self._TZ_TRANSITION_DURATION:
-                    tz_transitioning = True
-                    progress = _ease_in_out(elapsed / self._TZ_TRANSITION_DURATION)
-                    new_angles = _compute_hand_angles(time_info)
-                    hand_angles = {}
-                    for key in ("hour", "minute", "second"):
-                        delta = _shortest_angle_delta(self._tz_old_angles[key], new_angles[key])
-                        hand_angles[key] = self._tz_old_angles[key] + delta * progress
-                else:
-                    self._tz_old_angles = None
+            smooth = False
 
-            # Get active theme (cached, refreshed every 2s)
-            theme = self._cfg_theme or self._theme_manager.get_active_theme()
+            if self._cfg_display_mode != "dial":
+                # Get current time using cached ZoneInfo (no per-frame try/except)
+                now = datetime.now(self._cfg_tz)
+                tz_name = self._cfg_timezone
 
-            # Determine if smooth second hand is enabled (per-theme setting)
-            smooth = theme.get("hands", {}).get("second", {}).get("smooth", False)
-            if not smooth:
-                # Snap second hand to integer seconds
-                time_info["microsecond"] = 0
+                time_info["hour"] = now.hour
+                time_info["minute"] = now.minute
+                time_info["second"] = now.second
+                time_info["microsecond"] = now.microsecond
 
-            # Reload agenda events periodically
-            self._maybe_reload_agenda(now)
+                # Detect timezone change and start transition animation
+                if self._last_tz_name is not None and tz_name != self._last_tz_name:
+                    try:
+                        old_tz = ZoneInfo(self._last_tz_name)
+                        old_now = datetime.now(old_tz)
+                        old_time_info = {
+                            "hour": old_now.hour,
+                            "minute": old_now.minute,
+                            "second": old_now.second,
+                            "microsecond": old_now.microsecond,
+                        }
+                        self._tz_old_angles = _compute_hand_angles(old_time_info)
+                        self._tz_transition_start = time.time()
+                    except Exception:
+                        self._tz_old_angles = None
+                self._last_tz_name = tz_name
+
+                # Apply timezone transition animation (per-hand independent shortest path)
+                if self._tz_old_angles is not None:
+                    elapsed = time.time() - self._tz_transition_start
+                    if elapsed < self._TZ_TRANSITION_DURATION:
+                        tz_transitioning = True
+                        progress = _ease_in_out(elapsed / self._TZ_TRANSITION_DURATION)
+                        new_angles = _compute_hand_angles(time_info)
+                        hand_angles = {}
+                        for key in ("hour", "minute", "second"):
+                            delta = _shortest_angle_delta(self._tz_old_angles[key], new_angles[key])
+                            hand_angles[key] = self._tz_old_angles[key] + delta * progress
+                    else:
+                        self._tz_old_angles = None
+
+                # Get active theme (cached, refreshed every 2s)
+                theme = self._cfg_theme or self._theme_manager.get_active_theme()
+
+                # Determine if smooth second hand is enabled (per-theme setting)
+                smooth = theme.get("hands", {}).get("second", {}).get("smooth", False)
+                if not smooth:
+                    # Snap second hand to integer seconds
+                    time_info["microsecond"] = 0
+
+                # Reload agenda events periodically
+                self._maybe_reload_agenda(now)
 
             # Render frame
             if _debug:
                 _t0 = time.monotonic()
 
             if self._cfg_display_mode == "dial":
-                rgb_buf = self._render_dial(self._cfg_dial_theme or {})
+                # Skip full render when the dial frame hasn't changed
+                if self._dial_frame_dirty:
+                    rgb_buf = self._render_dial(self._cfg_dial_theme or {})
+                    self._dial_cached_buf = rgb_buf
+                    show_frame_from_buffer(rgb_buf)
+                # else: display already shows correct frame — do nothing
             else:
                 rgb_buf = render_frame(
                     time_info, theme,
@@ -285,9 +297,7 @@ class ClockEngine:
                     agenda_events=self._agenda_events,
                     hand_angles=hand_angles,
                 )
-
-            # Show frame (direct buffer path — no intermediate Pygame surface)
-            show_frame_from_buffer(rgb_buf)
+                show_frame_from_buffer(rgb_buf)
 
             if _debug:
                 _frame_times.append(time.monotonic() - _t0)
@@ -308,7 +318,7 @@ class ClockEngine:
                               and self._dial_current_progress != self._dial_target_progress)
             if self._alarm_active or tz_transitioning or dial_animating:
                 target_fps = self._cfg_animation_fps
-            elif smooth:
+            elif smooth and self._cfg_display_mode != "dial":
                 target_fps = self._cfg_smooth_fps
             else:
                 target_fps = self._cfg_idle_fps
@@ -368,8 +378,12 @@ class ClockEngine:
                 t = 1.0 - (1.0 - t) ** 3
                 diff = self._dial_target_progress - self._dial_anim_from
                 self._dial_current_progress = self._dial_anim_from + diff * t
+            # Still animating — keep dirty for next frame
+            self._dial_frame_dirty = True
         else:
             self._dial_current_progress = self._dial_target_progress
+            # Animation done — frame is clean after this render
+            self._dial_frame_dirty = False
 
         return render_dial_frame(dial_theme, self._dial_state, self._dial_current_progress)
 
@@ -395,7 +409,10 @@ class ClockEngine:
                 self._cfg_tz = ZoneInfo("UTC")
         self._cfg_display_mode = self._settings.get("display_mode", "clock") or "clock"
         self._cfg_theme = self._theme_manager.get_active_theme()
-        self._cfg_dial_theme = self._dial_theme_manager.get_active_theme()
+        new_dial_theme = self._dial_theme_manager.get_active_theme()
+        if new_dial_theme is not self._cfg_dial_theme:
+            self._cfg_dial_theme = new_dial_theme
+            self._dial_frame_dirty = True
         # Poll alarm scheduler (replaces timer thread — no GIL contention)
         if self._alarm_scheduler:
             self._alarm_scheduler.poll()

@@ -5,6 +5,7 @@ tick marks, and smooth animation. Controlled via REST API; visual
 defaults come from the active theme's ``dial`` section.
 """
 
+import functools
 import math
 import sys
 import time
@@ -13,6 +14,7 @@ import cairo
 import numpy as np
 
 from src.clock.display import DISPLAY_SIZE
+from src.clock.face import draw_background
 
 _SANS_FONT = "Arial" if sys.platform == "win32" else "sans-serif"
 
@@ -32,6 +34,7 @@ _conv_arr = np.frombuffer(_conv_buf, dtype=np.uint8).reshape(
 _mask_surface = None
 
 
+@functools.lru_cache(maxsize=64)
 def _hex_to_rgb(hex_color):
     """Convert hex color string to (r, g, b) floats 0-1."""
     hex_color = hex_color.lstrip("#")
@@ -63,12 +66,13 @@ def _deg_to_rad(deg):
 
 def _get_cap(style):
     """Map cap style name to Cairo line cap constant."""
-    caps = {
-        "butt": cairo.LINE_CAP_BUTT,
-        "round": cairo.LINE_CAP_ROUND,
-        "square": cairo.LINE_CAP_SQUARE,
-    }
-    return caps.get(style, cairo.LINE_CAP_ROUND)
+    return _CAP_MAP.get(style, cairo.LINE_CAP_ROUND)
+
+_CAP_MAP = {
+    "butt": cairo.LINE_CAP_BUTT,
+    "round": cairo.LINE_CAP_ROUND,
+    "square": cairo.LINE_CAP_SQUARE,
+}
 
 
 def _ease_out(t):
@@ -102,8 +106,6 @@ def render_dial_frame(dial_theme, dial_state, display_progress):
     global _mask_surface
     if _mask_surface is None:
         _mask_surface = _create_mask_surface()
-
-    from src.clock.face import draw_background
 
     size = DISPLAY_SIZE
     center = size / 2

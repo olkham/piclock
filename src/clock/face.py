@@ -1,3 +1,4 @@
+import functools
 import math
 import os
 import sys
@@ -89,6 +90,21 @@ def _draw_calendar_icon(ctx, cx, cy, size, r, g, b):
     ctx.restore()
 
 
+# Cached background image surface — avoids disk I/O + decode every frame
+_bg_image_cache = {}  # {path: cairo.ImageSurface}
+
+
+def _get_cached_bg_image(path):
+    """Return a cached Cairo ImageSurface for the given PNG path."""
+    cached = _bg_image_cache.get(path)
+    if cached is not None:
+        return cached
+    surface = cairo.ImageSurface.create_from_png(path)
+    _bg_image_cache.clear()   # keep at most one entry
+    _bg_image_cache[path] = surface
+    return surface
+
+
 def draw_background(ctx, size, theme):
     """Draw the clock face background."""
     bg = theme.get("background", {})
@@ -135,11 +151,11 @@ def draw_background(ctx, size, theme):
         ctx.set_source_rgb(r, g, b)
         ctx.rectangle(0, 0, size, size)
         ctx.fill()
-        # Draw image on top with image_opacity
+        # Draw image on top with image_opacity (cached surface)
         image_path = bg.get("image", "")
         if image_path and os.path.isfile(image_path):
             try:
-                img = cairo.ImageSurface.create_from_png(image_path)
+                img = _get_cached_bg_image(image_path)
                 img_w, img_h = img.get_width(), img.get_height()
                 scale = max(size / img_w, size / img_h)
                 ctx.save()
@@ -772,6 +788,7 @@ def draw_date_display(ctx, size, time_info, theme):
     ctx.show_text(text)
 
 
+@functools.lru_cache(maxsize=64)
 def _hex_to_rgb(hex_color):
     """Convert hex color string to (r, g, b) floats 0-1."""
     hex_color = hex_color.lstrip("#")
