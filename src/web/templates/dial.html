@@ -48,16 +48,9 @@
                 Create
             </button>
         </div>
-        <div class="mt-4 border-t border-slate-600 pt-4 space-y-2" x-show="editingDialTheme">
-            <button @click="activateDialTheme()"
-                    class="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1.5 rounded">
-                Activate
-            </button>
-            <button @click="showDeleteConfirm = true"
-                    class="w-full bg-red-600 hover:bg-red-700 text-white text-sm px-3 py-1.5 rounded">
-                Delete
-            </button>
-            <button @click="exportDialTheme()"
+        <!-- Import / Export -->
+        <div class="mt-4 border-t border-slate-600 pt-4 space-y-2">
+            <button @click="exportDialTheme()" x-show="editingDialTheme"
                     class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-3 py-1.5 rounded">
                 Export JSON
             </button>
@@ -117,13 +110,28 @@
             <!-- Dial Appearance -->
             <div class="card" x-show="dialTheme">
                 <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-lg font-semibold">Dial Appearance</h2>
-                    <span class="text-xs text-green-400 transition-opacity duration-500"
-                          :class="themeSaved ? 'opacity-100' : 'opacity-0'">Saved &#10003;</span>
+                    <h2 class="text-lg font-semibold">Editing: <span x-text="editingDialTheme"></span></h2>
+                    <div class="flex flex-wrap gap-2 items-center">
+                        <button @click="activateDialTheme()"
+                                class="bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1 rounded">
+                            Activate
+                        </button>
+                        <button @click="saveDialTheme()"
+                                class="bg-green-600 hover:bg-green-700 text-white text-sm px-3 py-1 rounded">
+                            Save
+                        </button>
+                        <button @click="saveAsNewDialTheme()"
+                                class="bg-purple-600 hover:bg-purple-700 text-white text-sm px-3 py-1 rounded">
+                            Save As New
+                        </button>
+                        <button @click="showDeleteConfirm = true"
+                                class="bg-red-600 hover:bg-red-700 text-white text-sm px-3 py-1 rounded">
+                            Delete
+                        </button>
+                        <span class="text-xs text-green-400 transition-opacity duration-500"
+                              :class="themeSaved ? 'opacity-100' : 'opacity-0'">Saved &#10003;</span>
+                    </div>
                 </div>
-                <p class="text-xs text-slate-500 mb-4">
-                    Editing: <span x-text="editingDialTheme"></span>
-                </p>
 
                 <!-- Background -->
                 <div class="mb-3">
@@ -232,16 +240,38 @@
                         <span x-text="sections.arc ? '&#9660;' : '&#9654;'" class="text-xs text-slate-500"></span>
                     </button>
                     <div x-show="sections.arc" x-collapse class="space-y-3 pb-3">
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-xs text-slate-400 mb-1">Arc Start: <span x-text="appearance.arc_start + '°'"></span></label>
-                                <input type="range" x-model.number="appearance.arc_start" min="0" max="360" step="5" @input="saveAppearance()" class="w-full">
+                        <!-- Symmetric / Manual toggle -->
+                        <label class="toggle-switch">
+                            <input type="checkbox" x-model="appearance.arc_symmetric" @change="saveAppearance()">
+                            <div class="toggle-track"></div>
+                            <span class="ml-2 text-sm">Symmetric arc</span>
+                        </label>
+                        <!-- Symmetric mode: center + extent -->
+                        <template x-if="appearance.arc_symmetric">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs text-slate-400 mb-1">Center: <span x-text="(appearance.arc_center ?? 0) + '°'"></span></label>
+                                    <input type="range" x-model.number="appearance.arc_center" min="0" max="360" step="5" @input="saveAppearance()" class="w-full">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-slate-400 mb-1">Extent: <span x-text="(appearance.arc_extent ?? 135) + '°'"></span></label>
+                                    <input type="range" x-model.number="appearance.arc_extent" min="10" max="180" step="5" @input="saveAppearance()" class="w-full">
+                                </div>
                             </div>
-                            <div>
-                                <label class="block text-xs text-slate-400 mb-1">Arc End: <span x-text="appearance.arc_end + '°'"></span></label>
-                                <input type="range" x-model.number="appearance.arc_end" min="0" max="720" step="5" @input="saveAppearance()" class="w-full">
+                        </template>
+                        <!-- Manual mode: start / end -->
+                        <template x-if="!appearance.arc_symmetric">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs text-slate-400 mb-1">Arc Start: <span x-text="appearance.arc_start + '°'"></span></label>
+                                    <input type="range" x-model.number="appearance.arc_start" min="0" max="360" step="5" @input="saveAppearance()" class="w-full">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-slate-400 mb-1">Arc End: <span x-text="appearance.arc_end + '°'"></span></label>
+                                    <input type="range" x-model.number="appearance.arc_end" min="0" max="720" step="5" @input="saveAppearance()" class="w-full">
+                                </div>
                             </div>
-                        </div>
+                        </template>
                         <div>
                             <label class="flex items-center justify-between text-xs text-slate-400 mb-1">
                                 <span>Radius</span><span x-text="appearance.radius + '%'"></span>
@@ -867,6 +897,39 @@ function dialManager() {
             }
         },
 
+        async saveDialTheme() {
+            if (!this.dialTheme) return;
+            const name = this.editingDialTheme;
+            const resp = await fetch('/api/dial-themes/' + encodeURIComponent(name), {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(this.dialTheme),
+            });
+            if (resp.ok) {
+                this.themeSaved = true;
+                setTimeout(() => this.themeSaved = false, 1500);
+            }
+        },
+
+        async saveAsNewDialTheme() {
+            const name = prompt('Enter a name for the new dial face:');
+            if (!name || !name.trim()) return;
+            const trimmed = name.trim();
+            const data = Object.assign({}, this.dialTheme, { name: trimmed });
+            const resp = await fetch('/api/dial-themes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+            if (resp.ok) {
+                if (!this.dialThemes.includes(trimmed)) {
+                    this.dialThemes.push(trimmed);
+                    this.dialThemes.sort();
+                }
+                await this.loadDialTheme(trimmed);
+            }
+        },
+
         async deleteDialTheme() {
             this.showDeleteConfirm = false;
             const name = this.editingDialTheme;
@@ -1095,8 +1158,18 @@ function dialManager() {
             const half = center;
 
             const degToRad = (deg) => (deg - 90) * Math.PI / 180;
-            const startRad = degToRad(a.arc_start);
-            const endRad = degToRad(a.arc_end);
+            let arcStart, arcEnd;
+            if (a.arc_symmetric) {
+                const ac = a.arc_center ?? 0;
+                const ae = a.arc_extent ?? 135;
+                arcStart = ac - ae;
+                arcEnd = ac + ae;
+            } else {
+                arcStart = a.arc_start;
+                arcEnd = a.arc_end;
+            }
+            const startRad = degToRad(arcStart);
+            const endRad = degToRad(arcEnd);
             const sweep = endRad - startRad;
 
             const hexToRgba = (hex, alpha) => {

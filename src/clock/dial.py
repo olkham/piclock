@@ -117,8 +117,14 @@ def render_dial_frame(dial_theme, dial_state, display_progress):
     ctx.set_operator(cairo.OPERATOR_OVER)
 
     # --- Arc geometry ---
-    arc_start = dial_cfg.get("arc_start", 135)
-    arc_end = dial_cfg.get("arc_end", 405)
+    if dial_cfg.get("arc_symmetric", False):
+        arc_center = dial_cfg.get("arc_center", 0)
+        arc_extent = dial_cfg.get("arc_extent", 135)
+        arc_start = arc_center - arc_extent
+        arc_end = arc_center + arc_extent
+    else:
+        arc_start = dial_cfg.get("arc_start", 135)
+        arc_end = dial_cfg.get("arc_end", 405)
     radius_pct = dial_cfg.get("radius", 85)
     thickness_pct = dial_cfg.get("thickness", 14)
     radius = radius_pct / 100 * (size / 2)

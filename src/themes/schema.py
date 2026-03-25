@@ -288,6 +288,9 @@ DEFAULT_THEME = {
     "dial": {
         "arc_start": 135,
         "arc_end": 405,
+        "arc_symmetric": False,
+        "arc_center": 0,
+        "arc_extent": 135,
         "thickness": 14,
         "track_color": "#ffffff",
         "track_opacity": 12,
