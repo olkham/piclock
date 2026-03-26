@@ -374,8 +374,8 @@ class ClockEngine:
                 self._dial_current_progress = self._dial_target_progress
             else:
                 t = elapsed / duration
-                # ease-out: 1 - (1-t)^3
-                t = 1.0 - (1.0 - t) ** 3
+                # ease-in-out: smooth start AND end (sinusoidal)
+                t = 0.5 - 0.5 * math.cos(math.pi * t)
                 diff = self._dial_target_progress - self._dial_anim_from
                 self._dial_current_progress = self._dial_anim_from + diff * t
             # Still animating — keep dirty for next frame
