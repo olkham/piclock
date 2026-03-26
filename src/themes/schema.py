@@ -130,9 +130,6 @@ THEME_SCHEMA = {
         "gradient_end_color": str,
         "radius": (int, float),          # % of half-display
         "show_text": bool,
-        "text_color": str,
-        "text_font_size": (int, float),  # 0 = auto (11% of display)
-        "text_offset_y": (int, float),   # % of radius
         "label_color": str,
         "label_font_size": (int, float), # 0 = auto (4.5% of display)
         "label_offset_y": (int, float),  # % of radius
@@ -303,9 +300,6 @@ DEFAULT_THEME = {
         "gradient_end_color": "#ff4444",
         "radius": 85,
         "show_text": True,
-        "text_color": "#ffffff",
-        "text_font_size": 0,
-        "text_offset_y": -2,
         "label_color": "#888888",
         "label_font_size": 0,
         "label_offset_y": 8,

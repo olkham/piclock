@@ -166,7 +166,7 @@ def _render_static_dial_layer(dial_theme, dial_state, dial_cfg, arc_geo):
         _draw_dial_text(ctx, center, size, radius, dial_cfg, dial_state)
 
     # Value text (uses raw value from dial_state, not animated display_progress)
-    if dial_cfg.get("show_value", False):
+    if dial_cfg.get("show_value", False) or "value_text" in dial_state:
         _draw_value_text(ctx, center, size, radius, dial_cfg, dial_state, 0)
 
     # Min/Max labels
@@ -186,7 +186,7 @@ def _render_static_dial_layer(dial_theme, dial_state, dial_cfg, arc_geo):
 # Main render function
 # ---------------------------------------------------------------------------
 
-def render_dial_frame(dial_theme, dial_state, display_progress):
+def render_dial_frame(dial_theme, dial_state, display_progress, overlay_fn=None):
     """Render a single dial frame.
 
     Uses a cached static layer for elements that don't change during
@@ -242,6 +242,9 @@ def render_dial_frame(dial_theme, dial_state, display_progress):
         _draw_hand(ctx, center, size, dial_cfg, hand_angle)
         if dial_cfg.get("hand_center_dot", True):
             _draw_hand_center_dot(ctx, center, size, dial_cfg)
+
+    if overlay_fn:
+        overlay_fn(ctx, size)
 
     _frame_surface.flush()
 
@@ -480,10 +483,12 @@ def _draw_hand_center_dot(ctx, center, size, dial_cfg):
 
 def _draw_value_text(ctx, center, size, radius, dial_cfg, dial_state, display_progress):
     """Draw the current numeric value with optional suffix."""
-    # Use the raw progress value from dial state (not the 0-100 display_progress)
-    raw_value = dial_state.get("progress", 0)
-    suffix = dial_cfg.get("value_suffix", "")
-    value_str = f"{raw_value}{suffix}"
+    # Allow explicit override (e.g. timer formatted time)
+    value_str = dial_state.get("value_text")
+    if value_str is None:
+        raw_value = dial_state.get("progress", 0)
+        suffix = dial_cfg.get("value_suffix", "")
+        value_str = f"{raw_value}{suffix}"
 
     font_size = dial_cfg.get("value_font_size", 0)
     if font_size <= 0:
@@ -538,64 +543,31 @@ def _draw_min_max(ctx, center, size, radius, dial_cfg, dial_state, start_rad, en
 
 
 def _draw_dial_text(ctx, center, size, radius, dial_cfg, dial_state):
-    """Draw primary text and label in the center of the dial."""
-    text = dial_state.get("text", "")
+    """Draw the label text in the center of the dial."""
     label = dial_state.get("label", "")
-
-    if not text and not label:
+    if not label:
         return
 
-    # Resolve colors (API override or theme default)
-    text_color = dial_state.get("text_color") or dial_cfg.get("text_color", "#ffffff")
     label_color = dial_cfg.get("label_color", "#888888")
-
-    text_offset_y = dial_cfg.get("text_offset_y", -2) / 100 * radius
     label_offset_y = dial_cfg.get("label_offset_y", 8) / 100 * radius
+    label_font_size = dial_cfg.get("label_font_size", 0)
+    if label_font_size <= 0:
+        label_font_size = size * 0.045  # 4.5% of display = ~32px
 
-    # Primary text
-    if text:
-        text_font_size = dial_cfg.get("text_font_size", 0)
-        if text_font_size <= 0:
-            text_font_size = size * 0.11  # 11% of display = ~80px
+    lr, lg, lb = _hex_to_rgb(label_color)
+    ctx.select_font_face(_SANS_FONT, cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+    ctx.set_font_size(label_font_size)
+    extents = ctx.text_extents(label)
 
-        tr, tg, tb = _hex_to_rgb(text_color)
-        ctx.select_font_face(_SANS_FONT, cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
-        ctx.set_font_size(text_font_size)
-        extents = ctx.text_extents(text)
+    lx = center - extents.width / 2 - extents.x_bearing
+    ly = center + label_offset_y + extents.height / 2
 
-        tx = center - extents.width / 2 - extents.x_bearing
-        ty = center + text_offset_y + extents.height / 2
+    # Shadow
+    ctx.set_source_rgba(0, 0, 0, 0.2)
+    ctx.move_to(lx + 1, ly + 1)
+    ctx.show_text(label)
 
-        # Shadow
-        ctx.set_source_rgba(0, 0, 0, 0.3)
-        ctx.move_to(tx + 2, ty + 2)
-        ctx.show_text(text)
-
-        # Text
-        ctx.set_source_rgb(tr, tg, tb)
-        ctx.move_to(tx, ty)
-        ctx.show_text(text)
-
-    # Label (smaller, below primary)
-    if label:
-        label_font_size = dial_cfg.get("label_font_size", 0)
-        if label_font_size <= 0:
-            label_font_size = size * 0.045  # 4.5% of display = ~32px
-
-        lr, lg, lb = _hex_to_rgb(label_color)
-        ctx.select_font_face(_SANS_FONT, cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
-        ctx.set_font_size(label_font_size)
-        extents = ctx.text_extents(label)
-
-        lx = center - extents.width / 2 - extents.x_bearing
-        ly = center + label_offset_y + extents.height / 2
-
-        # Shadow
-        ctx.set_source_rgba(0, 0, 0, 0.2)
-        ctx.move_to(lx + 1, ly + 1)
-        ctx.show_text(label)
-
-        # Label
-        ctx.set_source_rgb(lr, lg, lb)
-        ctx.move_to(lx, ly)
-        ctx.show_text(label)
+    # Label
+    ctx.set_source_rgb(lr, lg, lb)
+    ctx.move_to(lx, ly)
+    ctx.show_text(label)

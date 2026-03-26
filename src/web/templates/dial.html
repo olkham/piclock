@@ -436,57 +436,29 @@
                         <label class="toggle-switch">
                             <input type="checkbox" x-model="appearance.show_text" @change="saveAppearance()">
                             <div class="toggle-track"></div>
-                            <span class="ml-2 text-sm">Show text</span>
+                            <span class="ml-2 text-sm">Show label</span>
                         </label>
                         <template x-if="appearance.show_text">
                             <div class="space-y-3">
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-xs text-slate-400 mb-1">Text</label>
-                                        <input type="text" x-model="dial.text" @input="saveDial()" placeholder="e.g. 72°F"
-                                               class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs text-slate-400 mb-1">Label</label>
-                                        <input type="text" x-model="dial.label" @input="saveDial()" placeholder="e.g. Temperature"
-                                               class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
-                                    </div>
+                                <div>
+                                    <label class="block text-xs text-slate-400 mb-1">Label</label>
+                                    <input type="text" x-model="dial.label" @input="saveDial()" placeholder="e.g. Temperature"
+                                           class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
                                 </div>
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div class="flex items-center gap-3">
-                                        <label class="block text-xs text-slate-400 flex-shrink-0">Text Color</label>
-                                        <input type="color" x-model="appearance.text_color" @input="saveAppearance()" class="h-8 w-14 rounded">
-                                    </div>
-                                    <div class="flex items-center gap-3">
-                                        <label class="block text-xs text-slate-400 flex-shrink-0">Label Color</label>
-                                        <input type="color" x-model="appearance.label_color" @input="saveAppearance()" class="h-8 w-14 rounded">
-                                    </div>
+                                <div class="flex items-center gap-3">
+                                    <label class="block text-xs text-slate-400 flex-shrink-0">Label Color</label>
+                                    <input type="color" x-model="appearance.label_color" @input="saveAppearance()" class="h-8 w-14 rounded">
                                 </div>
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-xs text-slate-400 mb-1">Text Font Size (0=auto)</label>
-                                        <input type="number" x-model.number="appearance.text_font_size" @change="saveAppearance()" min="0" max="120"
-                                               class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs text-slate-400 mb-1">Label Font Size (0=auto)</label>
-                                        <input type="number" x-model.number="appearance.label_font_size" @change="saveAppearance()" min="0" max="60"
-                                               class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
-                                    </div>
+                                <div>
+                                    <label class="block text-xs text-slate-400 mb-1">Font Size (0=auto)</label>
+                                    <input type="number" x-model.number="appearance.label_font_size" @change="saveAppearance()" min="0" max="120"
+                                           class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
                                 </div>
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="flex items-center justify-between text-xs text-slate-400 mb-1">
-                                            <span>Text Offset Y</span><span x-text="appearance.text_offset_y + '%'"></span>
-                                        </label>
-                                        <input type="range" x-model.number="appearance.text_offset_y" min="-100" max="100" step="1" @input="saveAppearance()" class="w-full">
-                                    </div>
-                                    <div>
-                                        <label class="flex items-center justify-between text-xs text-slate-400 mb-1">
-                                            <span>Label Offset Y</span><span x-text="appearance.label_offset_y + '%'"></span>
-                                        </label>
-                                        <input type="range" x-model.number="appearance.label_offset_y" min="-100" max="100" step="1" @input="saveAppearance()" class="w-full">
-                                    </div>
+                                <div>
+                                    <label class="flex items-center justify-between text-xs text-slate-400 mb-1">
+                                        <span>Label Offset Y</span><span x-text="appearance.label_offset_y + '%'"></span>
+                                    </label>
+                                    <input type="range" x-model.number="appearance.label_offset_y" min="-100" max="100" step="1" @input="saveAppearance()" class="w-full">
                                 </div>
                             </div>
                         </template>
@@ -1339,28 +1311,15 @@ function dialManager() {
                 }
             }
 
-            // --- Text ---
-            if (a.show_text) {
-                const textSize = a.text_font_size || Math.round(size * 0.11);
+            // --- Label ---
+            if (a.show_text && this.dial.label) {
                 const labelSize = a.label_font_size || Math.round(size * 0.045);
-                const textY = center + a.text_offset_y / 100 * radius;
                 const labelY = center + a.label_offset_y / 100 * radius;
-                const tc = this.dial.text_color || a.text_color;
-
-                if (this.dial.text) {
-                    ctx.fillStyle = tc;
-                    ctx.font = `bold ${textSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText(this.dial.text, center, textY);
-                }
-                if (this.dial.label) {
-                    ctx.fillStyle = a.label_color;
-                    ctx.font = `${labelSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText(this.dial.label, center, labelY);
-                }
+                ctx.fillStyle = a.label_color;
+                ctx.font = `${labelSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(this.dial.label, center, labelY);
             }
 
             // --- Value text ---

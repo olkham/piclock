@@ -14,6 +14,18 @@ _CMD_FILE = os.path.join(_DATA_DIR, ".alarm_cmd.json")
 _STATE_FILE = os.path.join(_DATA_DIR, ".alarm_state.json")
 _NUDGE_FILE = os.path.join(_DATA_DIR, ".nudge")
 _DIAL_STATE_FILE = os.path.join(_DATA_DIR, ".dial_state.json")
+_TIMER_STATE_FILE = os.path.join(_DATA_DIR, ".timer_state.json")
+
+_DEFAULT_TIMER_STATE = {
+    "duration": 0,        # total seconds set by user
+    "remaining": 0,       # seconds remaining (countdown)
+    "label": "",          # user-defined label
+    "running": False,     # actively counting down
+    "started_at": 0,      # time.time() when started (engine-side)
+    "finished": False,    # True when countdown reached zero
+    "sound": "default",   # alarm sound to play on finish
+    "sound_enabled": True,
+}
 
 _DEFAULT_DIAL_STATE = {
     "progress": 0,
@@ -177,3 +189,44 @@ def write_dial_state(state):
 def reset_dial_state():
     """Reset dial state to defaults."""
     write_dial_state(dict(_DEFAULT_DIAL_STATE))
+
+
+# ---------------------------------------------------------------------------
+# Timer state — cross-process state for timer mode
+# ---------------------------------------------------------------------------
+
+def read_timer_state():
+    """Read timer state from disk. Returns dict with defaults for missing keys."""
+    data = {}
+    for _ in range(5):
+        try:
+            with open(_TIMER_STATE_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            break
+        except (FileNotFoundError, json.JSONDecodeError):
+            break
+        except PermissionError:
+            time.sleep(0.02)
+    result = dict(_DEFAULT_TIMER_STATE)
+    result.update(data)
+    return result
+
+
+def write_timer_state(state):
+    """Write timer state to disk (atomic, with retry for Windows file locks)."""
+    os.makedirs(_DATA_DIR, exist_ok=True)
+    tmp = _TIMER_STATE_FILE + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(state, f)
+    for _ in range(5):
+        try:
+            os.replace(tmp, _TIMER_STATE_FILE)
+            return
+        except PermissionError:
+            time.sleep(0.02)
+    os.replace(tmp, _TIMER_STATE_FILE)
+
+
+def reset_timer_state():
+    """Reset timer state to defaults."""
+    write_timer_state(dict(_DEFAULT_TIMER_STATE))

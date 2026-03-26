@@ -6,6 +6,7 @@ import random
 import re
 import subprocess
 import threading
+import time
 import urllib.request
 from datetime import datetime, timezone, timedelta
 from zoneinfo import available_timezones, ZoneInfo
@@ -416,6 +417,61 @@ def create_api_blueprint():
     def reset_dial():
         from src.alarms.ipc import reset_dial_state, write_nudge
         reset_dial_state()
+        write_nudge()
+        return jsonify({"status": "ok"})
+
+    # --- Timer ---
+
+    @bp.route("/timer", methods=["GET"])
+    def get_timer():
+        from src.alarms.ipc import read_timer_state
+        return jsonify(read_timer_state())
+
+    @bp.route("/timer", methods=["PUT"])
+    def update_timer():
+        from src.alarms.ipc import write_timer_state, read_timer_state, write_nudge
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "Invalid JSON body"}), 400
+        state = read_timer_state()
+        allowed = {"duration", "label", "sound", "sound_enabled"}
+        for key, value in data.items():
+            if key in allowed:
+                state[key] = value
+        write_timer_state(state)
+        write_nudge()
+        return jsonify(state)
+
+    @bp.route("/timer/start", methods=["POST"])
+    def start_timer():
+        from src.alarms.ipc import write_timer_state, read_timer_state, write_nudge
+        state = read_timer_state()
+        duration = state.get("duration", 0)
+        if duration <= 0:
+            return jsonify({"error": "Set a duration first"}), 400
+        state["running"] = True
+        state["finished"] = False
+        # Only reset remaining if it's a fresh start (not a resume)
+        if state.get("remaining", 0) <= 0:
+            state["remaining"] = duration
+        state["started_at"] = time.time()
+        write_timer_state(state)
+        write_nudge()
+        return jsonify(state)
+
+    @bp.route("/timer/stop", methods=["POST"])
+    def stop_timer():
+        from src.alarms.ipc import write_timer_state, read_timer_state, write_nudge
+        state = read_timer_state()
+        state["running"] = False
+        write_timer_state(state)
+        write_nudge()
+        return jsonify(state)
+
+    @bp.route("/timer/dismiss", methods=["POST"])
+    def dismiss_timer():
+        from src.alarms.ipc import reset_timer_state, write_nudge
+        reset_timer_state()
         write_nudge()
         return jsonify({"status": "ok"})
 
