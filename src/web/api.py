@@ -434,7 +434,12 @@ def create_api_blueprint():
         if not data:
             return jsonify({"error": "Invalid JSON body"}), 400
         state = read_timer_state()
-        allowed = {"duration", "label", "sound", "sound_enabled"}
+        allowed = {
+            "duration", "label", "sound", "sound_enabled",
+            "show_label", "label_offset_y", "label_font_size", "label_color",
+            "show_time", "time_offset_y", "time_font_size", "time_color",
+            "alert_shape", "alert_color", "alert_speed", "alert_position",
+        }
         for key, value in data.items():
             if key in allowed:
                 state[key] = value

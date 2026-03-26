@@ -16,11 +16,12 @@ class AlarmOverlay:
     """Draws a customizable visual indicator when an alarm is active."""
 
     def __init__(self, label="Alarm", shape="ring", color="#ff3333",
-                 speed="normal"):
+                 speed="normal", position="bottom"):
         self._label = label
         self._shape = shape
         self._color = color
         self._speed = _SPEED.get(speed, 4.0)
+        self._position = position  # "top", "center", "bottom"
         self._start_time = time.time()
         # Pre-cached surfaces for expensive effects
         self._glow_surface = None
@@ -49,7 +50,7 @@ class AlarmOverlay:
 
     def _draw_label(self, ctx, size, center, radius):
         """Draw the label text + bell icon, cached to a surface."""
-        cache_key = (size, self._label)
+        cache_key = (size, self._label, self._position)
         if self._label_surface is None or self._label_cache_key != cache_key:
             self._label_surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, size, size)
             lctx = cairo.Context(self._label_surface)
@@ -60,7 +61,13 @@ class AlarmOverlay:
             extents = lctx.text_extents(self._label)
             total_w = font_size * 0.9 + extents.width
             text_x = center - total_w / 2 + font_size * 0.9
-            text_y = center + radius * 0.35
+            # Position based on setting
+            if self._position == "top":
+                text_y = center - radius * 0.35
+            elif self._position == "center":
+                text_y = center
+            else:  # "bottom" (default)
+                text_y = center + radius * 0.35
             _draw_bell_icon(lctx, text_x - font_size * 0.6, text_y - font_size * 0.5, font_size * 0.7)
             lctx.set_source_rgba(1.0, 1.0, 1.0, 0.9)
             lctx.move_to(text_x, text_y)

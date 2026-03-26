@@ -139,6 +139,129 @@
                     </template>
                 </div>
             </div>
+
+            <!-- Timer Display Styling -->
+            <div class="card">
+                <h2 class="text-lg font-semibold mb-4">Display Styling</h2>
+
+                <!-- Label Text Section -->
+                <button @click="showLabel = !showLabel" class="w-full flex items-center justify-between py-2 text-sm font-medium text-slate-300 hover:text-white">
+                    <span>Label Text</span>
+                    <svg :class="showLabel && 'rotate-180'" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                </button>
+                <div x-show="showLabel" x-collapse class="space-y-3 pb-4 border-b border-slate-700">
+                    <label class="toggle-switch">
+                        <input type="checkbox" x-model="timer.show_label" @change="saveTimer()">
+                        <div class="toggle-track"></div>
+                        <span class="ml-2 text-sm">Show label</span>
+                    </label>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Vertical Position <span class="text-slate-500" x-text="'(' + (timer.label_offset_y ?? _themeDefault('label_offset_y', 8)) + '%)'"></span></label>
+                        <input type="range" min="-50" max="50" step="1"
+                               :value="timer.label_offset_y ?? _themeDefault('label_offset_y', 8)"
+                               @input="timer.label_offset_y = +$event.target.value; saveTimer()"
+                               class="w-full accent-blue-500">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Font Size <span class="text-slate-500" x-text="(timer.label_font_size ?? 0) || 'auto'"></span></label>
+                            <input type="range" min="0" max="60" step="1"
+                                   :value="timer.label_font_size ?? 0"
+                                   @input="timer.label_font_size = +$event.target.value || null; saveTimer()"
+                                   class="w-full accent-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Color</label>
+                            <input type="color"
+                                   :value="timer.label_color ?? _themeDefault('label_color', '#888888')"
+                                   @input="timer.label_color = $event.target.value; saveTimer()"
+                                   class="w-full h-8 rounded bg-slate-700 border border-slate-600 cursor-pointer">
+                        </div>
+                    </div>
+                    <button @click="timer.label_offset_y = null; timer.label_font_size = null; timer.label_color = null; saveTimer()"
+                            class="text-xs text-slate-500 hover:text-slate-300 transition-colors">Reset to theme defaults</button>
+                </div>
+
+                <!-- Countdown (Digital Timer) Section -->
+                <button @click="showTime = !showTime" class="w-full flex items-center justify-between py-2 text-sm font-medium text-slate-300 hover:text-white mt-2">
+                    <span>Countdown Display</span>
+                    <svg :class="showTime && 'rotate-180'" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                </button>
+                <div x-show="showTime" x-collapse class="space-y-3 pb-4 border-b border-slate-700">
+                    <label class="toggle-switch">
+                        <input type="checkbox" x-model="timer.show_time" @change="saveTimer()">
+                        <div class="toggle-track"></div>
+                        <span class="ml-2 text-sm">Show countdown</span>
+                    </label>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Vertical Position <span class="text-slate-500" x-text="'(' + (timer.time_offset_y ?? _themeDefault('value_offset_y', 12)) + '%)'"></span></label>
+                        <input type="range" min="-50" max="50" step="1"
+                               :value="timer.time_offset_y ?? _themeDefault('value_offset_y', 12)"
+                               @input="timer.time_offset_y = +$event.target.value; saveTimer()"
+                               class="w-full accent-blue-500">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Font Size <span class="text-slate-500" x-text="(timer.time_font_size ?? 0) || 'auto'"></span></label>
+                            <input type="range" min="0" max="80" step="1"
+                                   :value="timer.time_font_size ?? 0"
+                                   @input="timer.time_font_size = +$event.target.value || null; saveTimer()"
+                                   class="w-full accent-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Color</label>
+                            <input type="color"
+                                   :value="timer.time_color ?? _themeDefault('value_color', '#ffffff')"
+                                   @input="timer.time_color = $event.target.value; saveTimer()"
+                                   class="w-full h-8 rounded bg-slate-700 border border-slate-600 cursor-pointer">
+                        </div>
+                    </div>
+                    <button @click="timer.time_offset_y = null; timer.time_font_size = null; timer.time_color = null; saveTimer()"
+                            class="text-xs text-slate-500 hover:text-slate-300 transition-colors">Reset to theme defaults</button>
+                </div>
+
+                <!-- Alert Animation Section -->
+                <button @click="showAlert = !showAlert" class="w-full flex items-center justify-between py-2 text-sm font-medium text-slate-300 hover:text-white mt-2">
+                    <span>Alert Animation</span>
+                    <svg :class="showAlert && 'rotate-180'" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                </button>
+                <div x-show="showAlert" x-collapse class="space-y-3 pb-2">
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Animation Style</label>
+                        <select x-model="timer.alert_shape" @change="saveTimer()"
+                                class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
+                            <option value="border_glow">Border Glow</option>
+                            <option value="ring">Pulsing Ring</option>
+                            <option value="flash">Full Flash</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Animation Speed</label>
+                        <select x-model="timer.alert_speed" @change="saveTimer()"
+                                class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
+                            <option value="slow">Slow</option>
+                            <option value="normal">Normal</option>
+                            <option value="fast">Fast</option>
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Alert Color</label>
+                            <input type="color" x-model="timer.alert_color" @input="saveTimer()"
+                                   class="w-full h-8 rounded bg-slate-700 border border-slate-600 cursor-pointer">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Label Position</label>
+                            <select x-model="timer.alert_position" @change="saveTimer()"
+                                    class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
+                                <option value="top">Top</option>
+                                <option value="center">Center</option>
+                                <option value="bottom">Bottom</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Right: Preview -->
@@ -165,7 +288,10 @@ function timerManager() {
         dialThemes: {{ dial_themes | tojson }},
         activeDialTheme: '{{ active_dial_theme }}',
         sounds: [],
-        timer: { duration: 0, remaining: 0, label: '', running: false, started_at: 0, finished: false, sound: 'default', sound_enabled: true },
+        timer: { duration: 0, remaining: 0, label: '', running: false, started_at: 0, finished: false, sound: 'default', sound_enabled: true,
+                 show_label: true, label_offset_y: null, label_font_size: null, label_color: null,
+                 show_time: true, time_offset_y: null, time_font_size: null, time_color: null,
+                 alert_shape: 'border_glow', alert_color: '#ff9900', alert_speed: 'normal', alert_position: 'bottom' },
         hours: 0,
         minutes: 0,
         seconds: 0,
@@ -183,6 +309,10 @@ function timerManager() {
         _animProgress: 100,
         _pollTimer: null,
         _dialTheme: null,
+        _pollReceivedAt: 0,
+        showLabel: true,
+        showTime: true,
+        showAlert: false,
 
         async init() {
             const [timerResp, settingsResp, soundsResp] = await Promise.all([
@@ -191,6 +321,7 @@ function timerManager() {
                 fetch('/api/sounds'),
             ]);
             this.timer = await timerResp.json();
+            this._pollReceivedAt = performance.now();
             const settings = await settingsResp.json();
             this.displayMode = settings.display_mode || 'clock';
             this.sounds = await soundsResp.json();
@@ -240,14 +371,33 @@ function timerManager() {
                     label: this.timer.label,
                     sound: this.timer.sound,
                     sound_enabled: this.timer.sound_enabled,
+                    show_label: this.timer.show_label,
+                    label_offset_y: this.timer.label_offset_y,
+                    label_font_size: this.timer.label_font_size,
+                    label_color: this.timer.label_color,
+                    show_time: this.timer.show_time,
+                    time_offset_y: this.timer.time_offset_y,
+                    time_font_size: this.timer.time_font_size,
+                    time_color: this.timer.time_color,
+                    alert_shape: this.timer.alert_shape,
+                    alert_color: this.timer.alert_color,
+                    alert_speed: this.timer.alert_speed,
+                    alert_position: this.timer.alert_position,
                 }),
             });
+        },
+
+        _themeDefault(key, fallback) {
+            if (!this._dialTheme) return fallback;
+            const v = this._dialTheme.dial?.[key];
+            return v != null ? v : fallback;
         },
 
         async startTimer() {
             const resp = await fetch('/api/timer/start', { method: 'POST' });
             if (resp.ok) {
                 this.timer = await resp.json();
+                this._pollReceivedAt = performance.now();
             }
         },
 
@@ -255,6 +405,7 @@ function timerManager() {
             const resp = await fetch('/api/timer/stop', { method: 'POST' });
             if (resp.ok) {
                 this.timer = await resp.json();
+                this._pollReceivedAt = performance.now();
             }
         },
 
@@ -263,21 +414,32 @@ function timerManager() {
             const resp = await fetch('/api/timer/start', { method: 'POST' });
             if (resp.ok) {
                 this.timer = await resp.json();
+                this._pollReceivedAt = performance.now();
             }
         },
 
         async dismissTimer() {
             const resp = await fetch('/api/timer/dismiss', { method: 'POST' });
             if (resp.ok) {
-                this.timer = { duration: 0, remaining: 0, label: '', running: false, started_at: 0, finished: false, sound: 'default', sound_enabled: true };
+                this.timer = this._defaultTimerState();
                 this._decomposeDuration(0);
             }
         },
 
         async resetTimer() {
             await fetch('/api/timer/dismiss', { method: 'POST' });
-            this.timer = { duration: 0, remaining: 0, label: '', running: false, started_at: 0, finished: false, sound: 'default', sound_enabled: true };
+            this.timer = this._defaultTimerState();
             this._decomposeDuration(0);
+        },
+
+        _defaultTimerState() {
+            return {
+                duration: 0, remaining: 0, label: '', running: false, started_at: 0, finished: false,
+                sound: 'default', sound_enabled: true,
+                show_label: true, label_offset_y: null, label_font_size: null, label_color: null,
+                show_time: true, time_offset_y: null, time_font_size: null, time_color: null,
+                alert_shape: 'border_glow', alert_color: '#ff9900', alert_speed: 'normal', alert_position: 'bottom',
+            };
         },
 
         async setMode(mode) {
@@ -317,7 +479,13 @@ function timerManager() {
 
         _progressPct() {
             if (this.timer.duration <= 0) return 0;
-            return Math.max(0, Math.min(100, this.timer.remaining / this.timer.duration * 100));
+            let rem = this.timer.remaining;
+            // Smooth interpolation: subtract fractional elapsed since last poll
+            if (this.timer.running && rem > 0 && this._pollReceivedAt > 0) {
+                const elapsed = (performance.now() - this._pollReceivedAt) / 1000;
+                rem = Math.max(0, rem - elapsed);
+            }
+            return Math.max(0, Math.min(100, rem / this.timer.duration * 100));
         },
 
         _startPolling() {
@@ -326,6 +494,7 @@ function timerManager() {
                 const resp = await fetch('/api/timer');
                 if (resp.ok) {
                     this.timer = await resp.json();
+                    this._pollReceivedAt = performance.now();
                 }
             }, 1000);
         },
@@ -342,6 +511,11 @@ function timerManager() {
 
         _updateAnimation() {
             const target = this._progressPct();
+            // When timer is running, track directly for smooth constant-velocity motion
+            if (this.timer.running) {
+                this._animProgress = target;
+                return;
+            }
             if (Math.abs(this._animProgress - target) < 0.1) {
                 this._animProgress = target;
                 return;
@@ -603,25 +777,29 @@ function timerManager() {
             }
 
             // --- Label ---
-            if (a.show_text && this.timer.label) {
-                const labelSize = a.label_font_size || Math.round(size * 0.045);
-                const labelY = center + a.label_offset_y / 100 * radius;
-                ctx.fillStyle = a.label_color;
+            if (this.timer.show_label && this.timer.label) {
+                const labelSize = this.timer.label_font_size ?? (a.label_font_size || Math.round(size * 0.045));
+                const labelOffY = (this.timer.label_offset_y ?? a.label_offset_y ?? 8);
+                const labelY = center + labelOffY / 100 * radius;
+                ctx.fillStyle = this.timer.label_color ?? a.label_color ?? '#888888';
                 ctx.font = `${labelSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText(this.timer.label, center, labelY);
             }
 
-            // --- Remaining time (always shown in timer mode) ---
-            const timeStr = this.formatTime(this.timer.remaining);
-            const timeSize = a.value_font_size || Math.round(size * 0.07);
-            const timeY = center + (a.value_offset_y ?? 12) / 100 * radius;
-            ctx.fillStyle = a.value_color || '#ffffff';
-            ctx.font = `bold ${timeSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(timeStr, center, timeY);
+            // --- Remaining time (shown when show_time enabled) ---
+            if (this.timer.show_time !== false) {
+                const timeStr = this.formatTime(this.timer.remaining);
+                const timeSize = this.timer.time_font_size ?? (a.value_font_size || Math.round(size * 0.07));
+                const timeOffY = (this.timer.time_offset_y ?? a.value_offset_y ?? 12);
+                const timeY = center + timeOffY / 100 * radius;
+                ctx.fillStyle = this.timer.time_color ?? a.value_color ?? '#ffffff';
+                ctx.font = `bold ${timeSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(timeStr, center, timeY);
+            }
 
             ctx.restore();
         },

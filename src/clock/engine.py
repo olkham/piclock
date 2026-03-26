@@ -89,6 +89,7 @@ class ClockEngine:
         self._dial_cached_buf = None    # last rendered RGB buffer
         # Timer mode state
         self._timer_state = None
+        self._timer_merged_theme = None  # cached dial theme + timer overrides
         self._timer_last_tick = 0.0     # monotonic time of last countdown tick
         self._timer_display_pct = 0.0   # current display progress (0-100)
         self._timer_target_pct = 0.0    # target display progress
@@ -230,6 +231,7 @@ class ClockEngine:
                 self._dial_state = None  # force reload
                 self._dial_frame_dirty = True
                 self._timer_state = None  # force reload
+                self._timer_merged_theme = None
                 self._timer_frame_dirty = True
 
             # Reload cached settings periodically (every 2s, not per-frame)
@@ -350,8 +352,8 @@ class ClockEngine:
             if self._alarm_active or tz_transitioning or dial_animating or timer_animating:
                 target_fps = self._cfg_animation_fps
             elif timer_running:
-                # 1 FPS ticking countdown — just enough to update each second
-                target_fps = max(1, self._cfg_idle_fps)
+                # Smooth continuous hand motion while counting down
+                target_fps = self._cfg_animation_fps
             elif smooth and self._cfg_display_mode not in ("dial", "timer"):
                 target_fps = self._cfg_smooth_fps
             else:
@@ -429,6 +431,7 @@ class ClockEngine:
         # Lazy-load timer state (re-read on nudge or first call)
         if self._timer_state is None:
             self._timer_state = read_timer_state()
+            self._timer_merged_theme = None  # rebuild on state reload
             self._timer_last_tick = time.monotonic()
             # Reset finished-handled flag when state is freshly loaded
             if not self._timer_state.get("finished"):
@@ -462,31 +465,39 @@ class ClockEngine:
             self._timer_frame_dirty = True
             self._trigger_timer_alarm(state)
 
-        # Compute target progress (100% = full, 0% = done)
-        if duration > 0:
-            new_pct = max(0.0, min(100.0, remaining / duration * 100))
-        else:
-            new_pct = 0.0
-
-        if new_pct != self._timer_target_pct:
-            self._timer_anim_from = self._timer_display_pct
+        # Compute display progress — smooth continuous motion while running
+        if running and duration > 0 and remaining > 0:
+            # Fractional remaining for smooth hand motion between integer ticks
+            frac_elapsed = time.monotonic() - self._timer_last_tick
+            frac_remaining = max(0.0, remaining - frac_elapsed)
+            new_pct = max(0.0, min(100.0, frac_remaining / duration * 100))
+            self._timer_display_pct = new_pct
             self._timer_target_pct = new_pct
-            self._timer_anim_start = time.monotonic()
-
-        # Animate progress
-        anim_duration = dial_cfg.get("animation_duration", 0.5)
-        if self._timer_display_pct != self._timer_target_pct:
-            elapsed = time.monotonic() - self._timer_anim_start
-            if elapsed >= anim_duration:
-                self._timer_display_pct = self._timer_target_pct
-            else:
-                t = elapsed / anim_duration
-                t = 0.5 - 0.5 * math.cos(math.pi * t)
-                diff = self._timer_target_pct - self._timer_anim_from
-                self._timer_display_pct = self._timer_anim_from + diff * t
             self._timer_frame_dirty = True
         else:
-            self._timer_frame_dirty = False
+            # Not running — snap or animate to final position
+            if duration > 0:
+                new_pct = max(0.0, min(100.0, remaining / duration * 100))
+            else:
+                new_pct = 0.0
+            if new_pct != self._timer_target_pct:
+                self._timer_anim_from = self._timer_display_pct
+                self._timer_target_pct = new_pct
+                self._timer_anim_start = time.monotonic()
+            # Animate to target (ease-in-out for stop/reset transitions)
+            anim_duration = dial_cfg.get("animation_duration", 0.5)
+            if self._timer_display_pct != self._timer_target_pct:
+                elapsed = time.monotonic() - self._timer_anim_start
+                if elapsed >= anim_duration:
+                    self._timer_display_pct = self._timer_target_pct
+                else:
+                    t = elapsed / anim_duration
+                    t = 0.5 - 0.5 * math.cos(math.pi * t)
+                    diff = self._timer_target_pct - self._timer_anim_from
+                    self._timer_display_pct = self._timer_anim_from + diff * t
+                self._timer_frame_dirty = True
+            else:
+                self._timer_frame_dirty = False
 
         # Build a synthetic dial_state for the renderer
         # Format remaining time as HH:MM:SS or MM:SS
@@ -502,12 +513,35 @@ class ClockEngine:
             "progress": remaining,
             "min_value": 0,
             "max_value": max(duration, 1),
-            "label": state.get("label", ""),
-            "value_text": time_str,
+            "label": state.get("label", "") if state.get("show_label", True) else "",
             "progress_color": None,
             "text_color": None,
         }
-        return render_dial_frame(dial_theme, timer_dial_state, self._timer_display_pct,
+        if state.get("show_time", True):
+            timer_dial_state["value_text"] = time_str
+
+        # Merge timer-specific text styling overrides into the dial theme
+        if self._timer_merged_theme is None:
+            overrides = {}
+            for src_key, dst_key in (
+                ("label_offset_y", "label_offset_y"),
+                ("label_font_size", "label_font_size"),
+                ("label_color", "label_color"),
+                ("time_offset_y", "value_offset_y"),
+                ("time_font_size", "value_font_size"),
+                ("time_color", "value_color"),
+            ):
+                v = state.get(src_key)
+                if v is not None:
+                    overrides[dst_key] = v
+            if overrides:
+                merged_dial = {**dial_cfg, **overrides}
+                self._timer_merged_theme = {**dial_theme, "dial": merged_dial}
+            else:
+                self._timer_merged_theme = dial_theme
+
+        return render_dial_frame(self._timer_merged_theme, timer_dial_state,
+                                 self._timer_display_pct,
                                  overlay_fn=self._overlay_fn)
 
     def _trigger_timer_alarm(self, state):
@@ -518,14 +552,15 @@ class ClockEngine:
             sound_name = state.get("sound", "default")
             play_alarm_sound(sound_name)
 
-        # Visual overlay (reuse AlarmOverlay)
+        # Visual overlay (reuse AlarmOverlay with user-configured alert style)
         from src.alarms.visual import AlarmOverlay
         label = state.get("label", "") or "Timer"
         overlay = AlarmOverlay(
             label=label,
-            shape="border_glow",
-            color="#ff9900",
-            speed="normal",
+            shape=state.get("alert_shape", "border_glow"),
+            color=state.get("alert_color", "#ff9900"),
+            speed=state.get("alert_speed", "normal"),
+            position=state.get("alert_position", "bottom"),
         )
         self.set_overlay(overlay.draw)
 
@@ -564,6 +599,7 @@ class ClockEngine:
         if new_dial_theme is not self._cfg_dial_theme:
             self._cfg_dial_theme = new_dial_theme
             self._dial_frame_dirty = True
+            self._timer_merged_theme = None  # rebuild merged theme
         # Poll alarm scheduler (replaces timer thread — no GIL contention)
         if self._alarm_scheduler:
             self._alarm_scheduler.poll()

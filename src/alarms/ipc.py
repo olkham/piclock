@@ -25,6 +25,21 @@ _DEFAULT_TIMER_STATE = {
     "finished": False,    # True when countdown reached zero
     "sound": "default",   # alarm sound to play on finish
     "sound_enabled": True,
+    # Label styling overrides (None = inherit from dial theme)
+    "show_label": True,
+    "label_offset_y": None,
+    "label_font_size": None,
+    "label_color": None,
+    # Countdown (digital timer) styling overrides
+    "show_time": True,
+    "time_offset_y": None,
+    "time_font_size": None,
+    "time_color": None,
+    # Alert animation styling
+    "alert_shape": "border_glow",   # ring | flash | border_glow
+    "alert_color": "#ff9900",
+    "alert_speed": "normal",        # slow | normal | fast
+    "alert_position": "bottom",     # top | center | bottom
 }
 
 _DEFAULT_DIAL_STATE = {
