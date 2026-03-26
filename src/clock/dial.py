@@ -33,6 +33,12 @@ _conv_arr = np.frombuffer(_conv_buf, dtype=np.uint8).reshape(
 
 _mask_surface = None
 
+# --- Cached static dial layer (background + track + ticks + text + mask) ---
+_static_dial_surface = None
+_static_dial_dirty = True
+_last_dial_theme_id = None
+_last_dial_state_id = None
+
 
 @functools.lru_cache(maxsize=64)
 def _hex_to_rgb(hex_color):
@@ -87,64 +93,59 @@ def _ease_in_out(t):
     return 1 - ((-2 * t + 2) ** 3) / 2
 
 
-# ---------------------------------------------------------------------------
-# Main render function
-# ---------------------------------------------------------------------------
+def invalidate_dial_static_cache():
+    """Force the static dial layer to be re-rendered on the next frame."""
+    global _static_dial_dirty
+    _static_dial_dirty = True
 
-def render_dial_frame(dial_theme, dial_state, display_progress):
-    """Render a single dial frame.
 
-    Args:
-        dial_theme: Active dial theme dict (background + dial section).
-        dial_state: Current dial state dict (progress, text, label, overrides).
-        display_progress: The interpolated progress value (0-100) to render,
-                         already accounting for animation.
+def _compute_arc_geometry(dial_cfg, size):
+    """Compute arc geometry values shared by static + dynamic layers."""
+    if dial_cfg.get("arc_symmetric", False):
+        arc_center_deg = dial_cfg.get("arc_center", 0)
+        arc_extent = dial_cfg.get("arc_extent", 135)
+        arc_start = arc_center_deg - arc_extent
+        arc_end = arc_center_deg + arc_extent
+    else:
+        arc_start = dial_cfg.get("arc_start", 135)
+        arc_end = dial_cfg.get("arc_end", 405)
+    radius_pct = dial_cfg.get("radius", 85)
+    thickness_pct = dial_cfg.get("thickness", 14)
+    center = size / 2
+    radius = radius_pct / 100 * center
+    thickness = thickness_pct / 100 * radius
+    start_rad = _deg_to_rad(arc_start)
+    end_rad = _deg_to_rad(arc_end)
+    arc_sweep = end_rad - start_rad
+    cap = _get_cap(dial_cfg.get("cap_style", "round"))
+    return center, radius, thickness, start_rad, end_rad, arc_sweep, cap
 
-    Returns:
-        bytearray: RGB pixel buffer for display.
+
+def _render_static_dial_layer(dial_theme, dial_state, dial_cfg, arc_geo):
+    """Pre-render elements that don't change during animation.
+
+    Includes: background, track, ticks, text, value text, min/max, mask.
+    This surface is cached and blitted each frame; only the progress arc
+    and hand are drawn per-frame on top.
     """
     global _mask_surface
     if _mask_surface is None:
         _mask_surface = _create_mask_surface()
 
     size = DISPLAY_SIZE
-    center = size / 2
-    dial_cfg = dial_theme.get("dial", {})
+    center, radius, thickness, start_rad, end_rad, arc_sweep, cap = arc_geo
 
-    ctx = cairo.Context(_frame_surface)
+    surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, size, size)
+    ctx = cairo.Context(surface)
 
-    # --- Background (from dial theme's own background section) ---
-    ctx.set_operator(cairo.OPERATOR_SOURCE)
+    # Background
     draw_background(ctx, size, dial_theme)
-    ctx.set_operator(cairo.OPERATOR_OVER)
 
-    # --- Arc geometry ---
-    if dial_cfg.get("arc_symmetric", False):
-        arc_center = dial_cfg.get("arc_center", 0)
-        arc_extent = dial_cfg.get("arc_extent", 135)
-        arc_start = arc_center - arc_extent
-        arc_end = arc_center + arc_extent
-    else:
-        arc_start = dial_cfg.get("arc_start", 135)
-        arc_end = dial_cfg.get("arc_end", 405)
-    radius_pct = dial_cfg.get("radius", 85)
-    thickness_pct = dial_cfg.get("thickness", 14)
-    radius = radius_pct / 100 * (size / 2)
-    thickness = thickness_pct / 100 * radius
-
-    start_rad = _deg_to_rad(arc_start)
-    end_rad = _deg_to_rad(arc_end)
-    arc_sweep = end_rad - start_rad
-
-    cap = _get_cap(dial_cfg.get("cap_style", "round"))
-
-    # --- Track (unfilled background arc) ---
+    # Track arc
     track_style = dial_cfg.get("track_style", "solid")
     track_opacity = dial_cfg.get("track_opacity", 12) / 100
-
     ctx.set_line_width(thickness)
     ctx.set_line_cap(cap)
-
     if track_style == "zones":
         _draw_track_zones(ctx, center, radius, thickness, cap, dial_cfg, start_rad, arc_sweep, track_opacity)
     elif track_style == "gradient":
@@ -156,40 +157,91 @@ def render_dial_frame(dial_theme, dial_state, display_progress):
         ctx.arc(center, center, radius, start_rad, end_rad)
         ctx.stroke()
 
-    # --- Progress arc ---
+    # Tick marks
+    if dial_cfg.get("tick_marks", False):
+        _draw_ticks(ctx, center, size, dial_cfg, start_rad, arc_sweep)
+
+    # Text (label + primary — these don't change during animation)
+    if dial_cfg.get("show_text", True):
+        _draw_dial_text(ctx, center, size, radius, dial_cfg, dial_state)
+
+    # Value text (uses raw value from dial_state, not animated display_progress)
+    if dial_cfg.get("show_value", False):
+        _draw_value_text(ctx, center, size, radius, dial_cfg, dial_state, 0)
+
+    # Min/Max labels
+    if dial_cfg.get("show_min_max", False):
+        _draw_min_max(ctx, center, size, radius, dial_cfg, dial_state, start_rad, end_rad)
+
+    # Bake mask into static layer — dynamic elements (arc, hand) are
+    # geometrically inside the circle so they don't need per-frame masking.
+    ctx.set_source_surface(_mask_surface, 0, 0)
+    ctx.paint()
+
+    surface.flush()
+    return surface
+
+
+# ---------------------------------------------------------------------------
+# Main render function
+# ---------------------------------------------------------------------------
+
+def render_dial_frame(dial_theme, dial_state, display_progress):
+    """Render a single dial frame.
+
+    Uses a cached static layer for elements that don't change during
+    animation (background, track, ticks, text, mask).  Only the progress
+    arc and hand are drawn per-frame, matching the clock renderer pattern.
+
+    Args:
+        dial_theme: Active dial theme dict (background + dial section).
+        dial_state: Current dial state dict (progress, text, label, overrides).
+        display_progress: The interpolated progress value (0-100) to render,
+                         already accounting for animation.
+
+    Returns:
+        bytearray: RGB pixel buffer for display.
+    """
+    global _static_dial_surface, _static_dial_dirty
+    global _last_dial_theme_id, _last_dial_state_id
+
+    size = DISPLAY_SIZE
+    dial_cfg = dial_theme.get("dial", {})
+    arc_geo = _compute_arc_geometry(dial_cfg, size)
+    center, radius, thickness, start_rad, end_rad, arc_sweep, cap = arc_geo
+
+    # Identity-based change detection (theme/state objects are replaced, not mutated)
+    t_id, s_id = id(dial_theme), id(dial_state)
+    if t_id != _last_dial_theme_id or s_id != _last_dial_state_id:
+        _static_dial_dirty = True
+        _last_dial_theme_id = t_id
+        _last_dial_state_id = s_id
+
+    # Rebuild static layer only when inputs change
+    if _static_dial_dirty or _static_dial_surface is None:
+        _static_dial_surface = _render_static_dial_layer(
+            dial_theme, dial_state, dial_cfg, arc_geo)
+        _static_dial_dirty = False
+
+    # Start from cached static layer (SOURCE = memcpy, no alpha blend)
+    ctx = cairo.Context(_frame_surface)
+    ctx.set_operator(cairo.OPERATOR_SOURCE)
+    ctx.set_source_surface(_static_dial_surface, 0, 0)
+    ctx.paint()
+    ctx.set_operator(cairo.OPERATOR_OVER)
+
+    # --- Dynamic elements only (progress arc + hand) ---
+
     if dial_cfg.get("show_progress", True):
         _draw_progress_arc(ctx, center, radius, thickness, cap, dial_cfg, dial_state,
                            start_rad, arc_sweep, display_progress)
 
-    # --- Tick marks ---
-    if dial_cfg.get("tick_marks", False):
-        _draw_ticks(ctx, center, size, dial_cfg, start_rad, arc_sweep)
-
-    # --- Hand (shaft / triangle / needle) ---
     norm_progress = max(0.0, min(1.0, display_progress / 100.0))
     hand_angle = start_rad + arc_sweep * norm_progress
     if dial_cfg.get("show_hand", False):
         _draw_hand(ctx, center, size, dial_cfg, hand_angle)
-
-    # --- Text ---
-    if dial_cfg.get("show_text", True):
-        _draw_dial_text(ctx, center, size, radius, dial_cfg, dial_state)
-
-    # --- Value text ---
-    if dial_cfg.get("show_value", False):
-        _draw_value_text(ctx, center, size, radius, dial_cfg, dial_state, display_progress)
-
-    # --- Min / Max labels ---
-    if dial_cfg.get("show_min_max", False):
-        _draw_min_max(ctx, center, size, radius, dial_cfg, dial_state, start_rad, end_rad)
-
-    # --- Hand center dot (drawn last before mask for visual hierarchy) ---
-    if dial_cfg.get("show_hand", False) and dial_cfg.get("hand_center_dot", True):
-        _draw_hand_center_dot(ctx, center, size, dial_cfg)
-
-    # --- Circular mask ---
-    ctx.set_source_surface(_mask_surface, 0, 0)
-    ctx.paint()
+        if dial_cfg.get("hand_center_dot", True):
+            _draw_hand_center_dot(ctx, center, size, dial_cfg)
 
     _frame_surface.flush()
 
@@ -290,7 +342,11 @@ def _draw_track_gradient(ctx, center, radius, thickness, cap, dial_cfg, start_ra
 
 
 def _draw_ticks(ctx, center, size, dial_cfg, start_rad, arc_sweep):
-    """Draw major and optional minor tick marks using radius-based positioning."""
+    """Draw major and optional minor tick marks using radius-based positioning.
+
+    All minor ticks are batched into a single stroke() call, and likewise
+    for major ticks — this reduces Cairo rasterization passes from 50+ to 2.
+    """
     half = size / 2
     major_count = dial_cfg.get("major_tick_count", 10)
     if major_count < 2:
@@ -305,7 +361,7 @@ def _draw_ticks(ctx, center, size, dial_cfg, start_rad, arc_sweep):
 
     ctx.set_line_cap(cairo.LINE_CAP_BUTT)
 
-    # Draw minor ticks first (behind majors)
+    # Draw minor ticks first (behind majors) — single batched stroke
     if dial_cfg.get("minor_ticks", False):
         minor_per = dial_cfg.get("minor_tick_count", 4)
         if minor_per > 0:
@@ -326,9 +382,9 @@ def _draw_ticks(ctx, center, size, dial_cfg, start_rad, arc_sweep):
                     sin_a = math.sin(angle)
                     ctx.move_to(center + min_inner * cos_a, center + min_inner * sin_a)
                     ctx.line_to(center + min_outer * cos_a, center + min_outer * sin_a)
-                    ctx.stroke()
+            ctx.stroke()  # single stroke for all minor ticks
 
-    # Draw major ticks on top
+    # Draw major ticks on top — single batched stroke
     ctx.set_source_rgb(mr, mg, mb)
     ctx.set_line_width(maj_width)
 
@@ -338,7 +394,7 @@ def _draw_ticks(ctx, center, size, dial_cfg, start_rad, arc_sweep):
         sin_a = math.sin(angle)
         ctx.move_to(center + maj_inner * cos_a, center + maj_inner * sin_a)
         ctx.line_to(center + maj_outer * cos_a, center + maj_outer * sin_a)
-        ctx.stroke()
+    ctx.stroke()  # single stroke for all major ticks
 
 
 def _draw_hand(ctx, center, size, dial_cfg, angle):
