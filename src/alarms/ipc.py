@@ -16,6 +16,39 @@ _NUDGE_FILE = os.path.join(_DATA_DIR, ".nudge")
 _DIAL_STATE_FILE = os.path.join(_DATA_DIR, ".dial_state.json")
 _TIMER_STATE_FILE = os.path.join(_DATA_DIR, ".timer_state.json")
 
+
+def _atomic_write_json(filepath, data):
+    """Atomically write JSON to *filepath* with Windows retry for locks."""
+    os.makedirs(_DATA_DIR, exist_ok=True)
+    tmp = filepath + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(data, f)
+    for _ in range(5):
+        try:
+            os.replace(tmp, filepath)
+            return
+        except PermissionError:
+            time.sleep(0.02)
+    os.replace(tmp, filepath)
+
+
+def _read_json_with_defaults(filepath, defaults):
+    """Read JSON from *filepath*, merging into *defaults*. Retries on lock."""
+    data = {}
+    for _ in range(5):
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            break
+        except (FileNotFoundError, json.JSONDecodeError):
+            break
+        except PermissionError:
+            time.sleep(0.02)
+    result = dict(defaults)
+    result.update(data)
+    return result
+
+
 _DEFAULT_TIMER_STATE = {
     "duration": 0,        # total seconds set by user
     "remaining": 0,       # seconds remaining (countdown)
@@ -86,18 +119,8 @@ def check_nudge():
 
 def write_alarm_command(cmd, **kwargs):
     """Write an alarm command for the scheduler to pick up."""
-    os.makedirs(_DATA_DIR, exist_ok=True)
     payload = {"cmd": cmd, "ts": time.time(), **kwargs}
-    tmp = _CMD_FILE + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(payload, f)
-    for _ in range(5):
-        try:
-            os.replace(tmp, _CMD_FILE)
-            return
-        except PermissionError:
-            time.sleep(0.02)
-    os.replace(tmp, _CMD_FILE)
+    _atomic_write_json(_CMD_FILE, payload)
 
 
 def read_alarm_state():
@@ -150,18 +173,8 @@ def write_alarm_state(alarm_info):
     Args:
         alarm_info: dict with alarm details, or None when no alarm is active.
     """
-    os.makedirs(_DATA_DIR, exist_ok=True)
     state = {"active": True, "alarm": alarm_info} if alarm_info else {"active": False}
-    tmp = _STATE_FILE + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(state, f)
-    for _ in range(5):
-        try:
-            os.replace(tmp, _STATE_FILE)
-            return
-        except PermissionError:
-            time.sleep(0.02)
-    os.replace(tmp, _STATE_FILE)
+    _atomic_write_json(_STATE_FILE, state)
 
 
 # ---------------------------------------------------------------------------
@@ -170,35 +183,12 @@ def write_alarm_state(alarm_info):
 
 def read_dial_state():
     """Read dial state from disk. Returns dict with defaults for missing keys."""
-    data = {}
-    for _ in range(5):
-        try:
-            with open(_DIAL_STATE_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            break
-        except (FileNotFoundError, json.JSONDecodeError):
-            break
-        except PermissionError:
-            time.sleep(0.02)
-    result = dict(_DEFAULT_DIAL_STATE)
-    result.update(data)
-    return result
+    return _read_json_with_defaults(_DIAL_STATE_FILE, _DEFAULT_DIAL_STATE)
 
 
 def write_dial_state(state):
     """Write dial state to disk (atomic, with retry for Windows file locks)."""
-    os.makedirs(_DATA_DIR, exist_ok=True)
-    tmp = _DIAL_STATE_FILE + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(state, f)
-    for _ in range(5):
-        try:
-            os.replace(tmp, _DIAL_STATE_FILE)
-            return
-        except PermissionError:
-            time.sleep(0.02)
-    # Last attempt — let it raise if still locked
-    os.replace(tmp, _DIAL_STATE_FILE)
+    _atomic_write_json(_DIAL_STATE_FILE, state)
 
 
 def reset_dial_state():
@@ -212,34 +202,12 @@ def reset_dial_state():
 
 def read_timer_state():
     """Read timer state from disk. Returns dict with defaults for missing keys."""
-    data = {}
-    for _ in range(5):
-        try:
-            with open(_TIMER_STATE_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            break
-        except (FileNotFoundError, json.JSONDecodeError):
-            break
-        except PermissionError:
-            time.sleep(0.02)
-    result = dict(_DEFAULT_TIMER_STATE)
-    result.update(data)
-    return result
+    return _read_json_with_defaults(_TIMER_STATE_FILE, _DEFAULT_TIMER_STATE)
 
 
 def write_timer_state(state):
     """Write timer state to disk (atomic, with retry for Windows file locks)."""
-    os.makedirs(_DATA_DIR, exist_ok=True)
-    tmp = _TIMER_STATE_FILE + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(state, f)
-    for _ in range(5):
-        try:
-            os.replace(tmp, _TIMER_STATE_FILE)
-            return
-        except PermissionError:
-            time.sleep(0.02)
-    os.replace(tmp, _TIMER_STATE_FILE)
+    _atomic_write_json(_TIMER_STATE_FILE, state)
 
 
 def reset_timer_state():

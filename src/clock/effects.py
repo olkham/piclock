@@ -1,6 +1,8 @@
 import math
 import cairo
 
+from src.clock.color import hex_to_rgb
+
 
 def draw_shadow(ctx, draw_fn, offset_x=3, offset_y=3, blur_alpha=0.3):
     """Draw a drop shadow by rendering the shape offset and semi-transparent.
@@ -21,7 +23,7 @@ def draw_shadow(ctx, draw_fn, offset_x=3, offset_y=3, blur_alpha=0.3):
 
 def draw_glow(ctx, x, y, radius, color_hex, intensity=0.5):
     """Draw a soft glow effect at a point."""
-    r, g, b = _hex_to_rgb(color_hex)
+    r, g, b = hex_to_rgb(color_hex)
     pattern = cairo.RadialGradient(x, y, 0, x, y, radius)
     pattern.add_color_stop_rgba(0, r, g, b, intensity)
     pattern.add_color_stop_rgba(1, r, g, b, 0)
@@ -29,7 +31,3 @@ def draw_glow(ctx, x, y, radius, color_hex, intensity=0.5):
     ctx.arc(x, y, radius, 0, 2 * math.pi)
     ctx.fill()
 
-
-def _hex_to_rgb(hex_color):
-    hex_color = hex_color.lstrip("#")
-    return tuple(int(hex_color[i:i+2], 16) / 255.0 for i in (0, 2, 4))

@@ -1,8 +1,9 @@
-import functools
 import math
 import os
 import sys
 import cairo
+
+from src.clock.color import hex_to_rgb
 
 try:
     from PIL import Image, ImageDraw, ImageFont
@@ -136,18 +137,18 @@ def draw_background(ctx, size, theme):
 
         if color_stops:
             for stop in color_stops:
-                r, g, b = _hex_to_rgb(stop.get("color", "#000000"))
+                r, g, b = hex_to_rgb(stop.get("color", "#000000"))
                 pattern.add_color_stop_rgba(stop.get("position", 0), r, g, b, color_opacity)
         else:
             for i, color_hex in enumerate(colors):
-                r, g, b = _hex_to_rgb(color_hex)
+                r, g, b = hex_to_rgb(color_hex)
                 pattern.add_color_stop_rgba(i / max(len(colors) - 1, 1), r, g, b, color_opacity)
 
         ctx.set_source(pattern)
     elif bg_type == "image":
         # Draw fallback color first (always opaque base)
         color = bg.get("color", "#1a1a2e")
-        r, g, b = _hex_to_rgb(color)
+        r, g, b = hex_to_rgb(color)
         ctx.set_source_rgb(r, g, b)
         ctx.rectangle(0, 0, size, size)
         ctx.fill()
@@ -168,7 +169,7 @@ def draw_background(ctx, size, theme):
         return
     else:
         color = bg.get("color", "#1a1a2e")
-        r, g, b = _hex_to_rgb(color)
+        r, g, b = hex_to_rgb(color)
         ctx.set_source_rgba(r, g, b, color_opacity)
 
     ctx.rectangle(0, 0, size, size)
@@ -226,7 +227,7 @@ def draw_alarm_indicators(ctx, size, theme, alarms):
     radius = size / 2
     color = indicator_cfg.get("color", "#ffaa00")
     dot_size = indicator_cfg.get("size", 4.0)
-    r, g, b = _hex_to_rgb(color)
+    r, g, b = hex_to_rgb(color)
 
     for alarm in alarms:
         time_str = alarm.get("time", "")
@@ -262,7 +263,7 @@ def draw_alarm_indicators(ctx, size, theme, alarms):
 
 def _draw_minute_markers(ctx, center, radius, markers):
     color = markers.get("minute_color", "#444444")
-    r, g, b = _hex_to_rgb(color)
+    r, g, b = hex_to_rgb(color)
     width = markers.get("minute_width", 1.5)
     shadow = markers.get("minute_shadow", False)
     outer_pct = markers.get("minute_marker_radius", 95) / 100
@@ -300,7 +301,7 @@ def _draw_minute_markers(ctx, center, radius, markers):
 
 def _draw_minute_dots(ctx, center, radius, markers):
     color = markers.get("minute_color", "#444444")
-    r, g, b = _hex_to_rgb(color)
+    r, g, b = hex_to_rgb(color)
     dot_r = markers.get("minute_dot_radius", 2.0)
     shadow = markers.get("minute_shadow", False)
     outer_pct = markers.get("minute_marker_radius", 95) / 100
@@ -324,7 +325,7 @@ def _draw_minute_dots(ctx, center, radius, markers):
 
 def _draw_line_markers(ctx, center, radius, markers):
     color = markers.get("hour_color", "#ffffff")
-    r, g, b = _hex_to_rgb(color)
+    r, g, b = hex_to_rgb(color)
     width = markers.get("hour_width", 3.0)
     shadow = markers.get("hour_shadow", False)
     outer_pct = markers.get("hour_marker_radius", 95) / 100
@@ -360,7 +361,7 @@ def _draw_line_markers(ctx, center, radius, markers):
 
 def _draw_dot_markers(ctx, center, radius, markers):
     color = markers.get("hour_color", "#ffffff")
-    r, g, b = _hex_to_rgb(color)
+    r, g, b = hex_to_rgb(color)
     dot_radius = markers.get("dot_radius", 5.0)
     shadow = markers.get("hour_shadow", False)
     outer_pct = markers.get("hour_marker_radius", 95) / 100
@@ -399,7 +400,7 @@ def _draw_custom_labels(ctx, center, radius, markers):
 
 def _draw_text_markers(ctx, center, radius, markers, labels, font_family, default_size_ratio):
     color = markers.get("hour_color", "#ffffff")
-    r, g, b = _hex_to_rgb(color)
+    r, g, b = hex_to_rgb(color)
     font_size = markers.get("font_size", 0) or radius * default_size_ratio
     shadow = markers.get("hour_shadow", False)
     hour_radius_pct = markers.get("hour_radius", 82) / 100
@@ -504,7 +505,7 @@ def draw_clock_text(ctx, size, time_info, theme):
         text = f"{hour:02d}:{minute:02d}"
 
     color = cfg.get("color", "#ffffff")
-    r, g, b = _hex_to_rgb(color)
+    r, g, b = hex_to_rgb(color)
     font_size = cfg.get("font_size", 0)
     if font_size <= 0:
         font_size = radius * 0.12
@@ -565,7 +566,7 @@ def draw_agenda(ctx, size, theme, agenda_events):
         start_angle = math.radians(start_pos * 30 - 90)
         end_angle = start_angle + math.radians(duration_hours * 30)
 
-        r, g, b = _hex_to_rgb(color)
+        r, g, b = hex_to_rgb(color)
         ctx.set_source_rgba(r, g, b, opacity)
 
         # Draw annular sector: outer arc → inner arc (reverse) → close
@@ -703,8 +704,13 @@ def draw_current_event(ctx, size, time_info, theme, agenda_events):
     else:
         y_pos = center + radius * 0.25
 
-    primary_font = radius * 0.07
-    secondary_font = radius * 0.06
+    event_offset_y = agenda_cfg.get("offset_y", 0)
+    if event_offset_y:
+        y_pos = center + event_offset_y / 100 * radius
+
+    base_font = agenda_cfg.get("font_size", 0)
+    primary_font = base_font if base_font and base_font > 0 else radius * 0.07
+    secondary_font = (base_font * 0.85) if base_font and base_font > 0 else radius * 0.06
 
     # --- Case 1: Active event exists ---
     if active_event:
@@ -712,7 +718,7 @@ def draw_current_event(ctx, size, time_info, theme, agenda_events):
         if not title:
             return
         color = active_event.get("color", "#4488ff")
-        r, g, b = _hex_to_rgb(color)
+        r, g, b = hex_to_rgb(color)
 
         # Draw "Now" line (primary)
         baseline = _draw_event_line(
@@ -738,7 +744,7 @@ def draw_current_event(ctx, size, time_info, theme, agenda_events):
         if not next_title:
             return
         color = next_event.get("color", "#4488ff")
-        r, g, b = _hex_to_rgb(color)
+        r, g, b = hex_to_rgb(color)
         time_str = _format_time_until(next_delta)
         next_display = f"{next_title} {time_str}"
 
@@ -767,7 +773,7 @@ def draw_date_display(ctx, size, time_info, theme):
         text = today.strftime("%b %d")
 
     color = cfg.get("color", "#ffffff")
-    r, g, b = _hex_to_rgb(color)
+    r, g, b = hex_to_rgb(color)
     font_size = cfg.get("font_size", 0)
     if font_size <= 0:
         font_size = radius * 0.08
@@ -786,10 +792,3 @@ def draw_date_display(ctx, size, time_info, theme):
     ctx.set_source_rgb(r, g, b)
     ctx.move_to(x, y)
     ctx.show_text(text)
-
-
-@functools.lru_cache(maxsize=64)
-def _hex_to_rgb(hex_color):
-    """Convert hex color string to (r, g, b) floats 0-1."""
-    hex_color = hex_color.lstrip("#")
-    return tuple(int(hex_color[i:i+2], 16) / 255.0 for i in (0, 2, 4))

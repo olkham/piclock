@@ -48,7 +48,7 @@ class PowerManager:
         tz_name = self._settings.get("timezone", "UTC")
         try:
             tz = ZoneInfo(tz_name)
-        except Exception:
+        except (KeyError, ValueError):
             tz = ZoneInfo("UTC")
         now = datetime.now(tz)
         current = now.hour * 60 + now.minute
@@ -69,43 +69,46 @@ class PowerManager:
         self.set_brightness(target)
 
     @staticmethod
+    def _find_backlight_files():
+        """Return (brightness_file, max_brightness_file) or (None, None)."""
+        if not os.path.isdir(_BACKLIGHT_PATH):
+            return None, None
+        for entry in os.listdir(_BACKLIGHT_PATH):
+            bf = os.path.join(_BACKLIGHT_PATH, entry, "brightness")
+            mf = os.path.join(_BACKLIGHT_PATH, entry, "max_brightness")
+            if os.path.isfile(bf) and os.path.isfile(mf):
+                return bf, mf
+        return None, None
+
+    @staticmethod
     def set_brightness(level):
         """Set display brightness (0-100). Only works on Pi with backlight sysfs."""
-        if not os.path.isdir(_BACKLIGHT_PATH):
+        bf, mf = PowerManager._find_backlight_files()
+        if bf is None:
             return
-
-        for entry in os.listdir(_BACKLIGHT_PATH):
-            brightness_file = os.path.join(_BACKLIGHT_PATH, entry, "brightness")
-            max_file = os.path.join(_BACKLIGHT_PATH, entry, "max_brightness")
-            if os.path.isfile(brightness_file) and os.path.isfile(max_file):
-                try:
-                    with open(max_file, "r") as f:
-                        max_val = int(f.read().strip())
-                    target = int(max_val * level / 100)
-                    with open(brightness_file, "w") as f:
-                        f.write(str(target))
-                except (OSError, ValueError):
-                    pass
+        try:
+            with open(mf, "r") as f:
+                max_val = int(f.read().strip())
+            target = int(max_val * level / 100)
+            with open(bf, "w") as f:
+                f.write(str(target))
+        except (OSError, ValueError):
+            pass
 
     @staticmethod
     def get_brightness():
         """Read current brightness level. Returns None if not available."""
-        if not os.path.isdir(_BACKLIGHT_PATH):
+        bf, mf = PowerManager._find_backlight_files()
+        if bf is None:
             return None
-
-        for entry in os.listdir(_BACKLIGHT_PATH):
-            brightness_file = os.path.join(_BACKLIGHT_PATH, entry, "brightness")
-            max_file = os.path.join(_BACKLIGHT_PATH, entry, "max_brightness")
-            if os.path.isfile(brightness_file) and os.path.isfile(max_file):
-                try:
-                    with open(max_file, "r") as f:
-                        max_val = int(f.read().strip())
-                    with open(brightness_file, "r") as f:
-                        current = int(f.read().strip())
-                    return int(current * 100 / max_val) if max_val > 0 else 0
-                except (OSError, ValueError):
-                    pass
-        return None
+        try:
+            with open(mf, "r") as f:
+                max_val = int(f.read().strip())
+            with open(bf, "r") as f:
+                current = int(f.read().strip())
+            return int(current * 100 / max_val) if max_val > 0 else 0
+        except (OSError, ValueError):
+            return None
 
 
 def _parse_time_minutes(time_str):

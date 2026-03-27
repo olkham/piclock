@@ -66,7 +66,7 @@ class AlarmScheduler:
         tz_name = self._settings.get("timezone", "UTC")
         try:
             tz = ZoneInfo(tz_name)
-        except Exception:
+        except (KeyError, ValueError):
             tz = ZoneInfo("UTC")
         now = datetime.now(tz)
         current_time = now.strftime("%H:%M")

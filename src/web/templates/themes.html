@@ -1,14 +1,14 @@
 {% extends "base.html" %}
-{% block title %}PiClock — Themes{% endblock %}
+{% block title %}PiClock — Clock Faces{% endblock %}
 {% block main_class %}max-w-[90rem] px-2 sm:px-4{% endblock %}
 {% block content %}
 <div x-data="themeEditor()" x-init="init()">
-    <h1 class="text-2xl font-bold mb-6">Theme Editor</h1>
+    <h1 class="text-2xl font-bold mb-6">Clock Face Editor</h1>
 
     <div class="flex flex-col lg:flex-row gap-4 lg:gap-6">
         <!-- Theme List -->
         <div class="card w-full lg:w-64 flex-shrink-0 self-start">
-            <h2 class="text-lg font-semibold mb-4">Themes</h2>
+            <h2 class="text-lg font-semibold mb-4">Clock Faces</h2>
             <div class="space-y-2">
                 <template x-for="t in themes" :key="t">
                     <div class="flex items-center justify-between p-2 rounded cursor-pointer hover:bg-slate-600"
@@ -20,7 +20,7 @@
                 </template>
             </div>
             <div class="mt-4 space-y-2">
-                <input x-model="newName" placeholder="New theme name"
+                <input x-model="newName" placeholder="New clock face name"
                        class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
                 <button @click="createTheme()"
                         class="w-full bg-green-600 hover:bg-green-700 text-white text-sm px-3 py-1.5 rounded">
@@ -32,10 +32,10 @@
             <div class="mt-4 border-t border-slate-600 pt-4 space-y-2">
                 <button @click="exportTheme()" x-show="editing"
                         class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-3 py-1.5 rounded">
-                    Export Theme JSON
+                    Export JSON
                 </button>
                 <label class="block w-full bg-teal-600 hover:bg-teal-700 text-white text-sm px-3 py-1.5 rounded text-center cursor-pointer">
-                    Import Theme JSON
+                    Import JSON
                     <input type="file" accept=".json" @change="importTheme($event)" class="hidden">
                 </label>
             </div>
@@ -65,10 +65,14 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="space-y-1">
                 <!-- Background -->
-                <fieldset class="border border-slate-600 rounded p-3">
-                    <legend class="text-sm text-slate-400 px-1">Background</legend>
+                <div>
+                    <button @click="sections.background = !sections.background" class="w-full flex items-center justify-between py-2 text-sm font-medium text-slate-300 hover:text-white">
+                        <span>Background</span>
+                        <svg :class="sections.background && 'rotate-180'" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                    <div x-show="sections.background" x-collapse class="space-y-3 pb-4 border-b border-slate-700">
                     <label class="block text-xs text-slate-400 mb-1">Type</label>
                     <select x-model="theme.background.type" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm mb-2">
                         <option value="solid">Solid</option>
@@ -153,11 +157,16 @@
                             <input type="range" x-model.number="theme.background.color_opacity" min="0" max="100" step="5" class="w-full">
                         </div>
                     </template>
-                </fieldset>
+                    </div>
+                </div>
 
                 <!-- Hour Markers -->
-                <fieldset class="border border-slate-600 rounded p-3">
-                    <legend class="text-sm text-slate-400 px-1">Hour Markers</legend>
+                <div>
+                    <button @click="sections.hourMarkers = !sections.hourMarkers" class="w-full flex items-center justify-between py-2 text-sm font-medium text-slate-300 hover:text-white">
+                        <span>Hour Markers</span>
+                        <svg :class="sections.hourMarkers && 'rotate-180'" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                    <div x-show="sections.hourMarkers" x-collapse class="space-y-3 pb-4 border-b border-slate-700">
                     <label class="block text-xs text-slate-400 mb-1">Marker Style</label>
                     <select x-model="theme.markers.hour_style" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm mb-2">
                         <option value="line">Lines</option>
@@ -192,11 +201,16 @@
                         <div class="toggle-track"></div>
                         <span class="ml-2 text-sm">Marker shadow</span>
                     </label>
-                </fieldset>
+                    </div>
+                </div>
 
                 <!-- Hour Text -->
-                <fieldset class="border border-slate-600 rounded p-3">
-                    <legend class="text-sm text-slate-400 px-1">Hour Text</legend>
+                <div>
+                    <button @click="sections.hourText = !sections.hourText" class="w-full flex items-center justify-between py-2 text-sm font-medium text-slate-300 hover:text-white">
+                        <span>Hour Text</span>
+                        <svg :class="sections.hourText && 'rotate-180'" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                    <div x-show="sections.hourText" x-collapse class="space-y-3 pb-4 border-b border-slate-700">
                     <label class="block text-xs text-slate-400 mb-1">Text Style</label>
                     <select x-model="theme.markers.hour_text_style" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm mb-2">
                         <option value="none">None</option>
@@ -225,11 +239,16 @@
                             <input type="range" x-model.number="theme.markers.hour_radius" min="20" max="95" step="1" class="w-full mb-1">
                         </div>
                     </template>
-                </fieldset>
+                    </div>
+                </div>
 
                 <!-- Minute Markers -->
-                <fieldset class="border border-slate-600 rounded p-3">
-                    <legend class="text-sm text-slate-400 px-1">Minute Markers</legend>
+                <div>
+                    <button @click="sections.minuteMarkers = !sections.minuteMarkers" class="w-full flex items-center justify-between py-2 text-sm font-medium text-slate-300 hover:text-white">
+                        <span>Minute Markers</span>
+                        <svg :class="sections.minuteMarkers && 'rotate-180'" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                    <div x-show="sections.minuteMarkers" x-collapse class="space-y-3 pb-4 border-b border-slate-700">
                     <label class="toggle-switch mb-2">
                         <input type="checkbox" x-model="theme.markers.show_minutes">
                         <div class="toggle-track"></div>
@@ -265,11 +284,16 @@
                         <div class="toggle-track"></div>
                         <span class="ml-2 text-sm">Marker shadow</span>
                     </label>
-                </fieldset>
+                    </div>
+                </div>
 
                 <!-- Alarm Indicators -->
-                <fieldset class="border border-slate-600 rounded p-3">
-                    <legend class="text-sm text-slate-400 px-1">Alarm Indicators</legend>
+                <div>
+                    <button @click="sections.alarmIndicators = !sections.alarmIndicators" class="w-full flex items-center justify-between py-2 text-sm font-medium text-slate-300 hover:text-white">
+                        <span>Alarm Indicators</span>
+                        <svg :class="sections.alarmIndicators && 'rotate-180'" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                    <div x-show="sections.alarmIndicators" x-collapse class="space-y-3 pb-4 border-b border-slate-700">
                     <label class="toggle-switch mb-2">
                         <input type="checkbox" x-model="theme.alarm_indicators.visible">
                         <div class="toggle-track"></div>
@@ -279,11 +303,16 @@
                     <input type="color" x-model="theme.alarm_indicators.color" class="w-full h-8 rounded mb-2">
                     <label class="block text-xs text-slate-400 mb-1">Size: <span x-text="theme.alarm_indicators.size"></span></label>
                     <input type="range" x-model.number="theme.alarm_indicators.size" min="2" max="10" step="0.5" class="w-full">
-                </fieldset>
+                    </div>
+                </div>
 
                 <!-- Hour Hand -->
-                <fieldset class="border border-slate-600 rounded p-3">
-                    <legend class="text-sm text-slate-400 px-1">Hour Hand</legend>
+                <div>
+                    <button @click="sections.hourHand = !sections.hourHand" class="w-full flex items-center justify-between py-2 text-sm font-medium text-slate-300 hover:text-white">
+                        <span>Hour Hand</span>
+                        <svg :class="sections.hourHand && 'rotate-180'" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                    <div x-show="sections.hourHand" x-collapse class="space-y-3 pb-4 border-b border-slate-700">
                     <label class="block text-xs text-slate-400 mb-1">Style</label>
                     <select x-model="theme.hands.hour.style" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm mb-2">
                         <option value="tapered">Tapered</option>
@@ -316,11 +345,16 @@
                             <input type="color" x-model="theme.hands.hour.glow_color" class="w-full h-7 rounded">
                         </div>
                     </template>
-                </fieldset>
+                    </div>
+                </div>
 
                 <!-- Minute Hand -->
-                <fieldset class="border border-slate-600 rounded p-3">
-                    <legend class="text-sm text-slate-400 px-1">Minute Hand</legend>
+                <div>
+                    <button @click="sections.minuteHand = !sections.minuteHand" class="w-full flex items-center justify-between py-2 text-sm font-medium text-slate-300 hover:text-white">
+                        <span>Minute Hand</span>
+                        <svg :class="sections.minuteHand && 'rotate-180'" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                    <div x-show="sections.minuteHand" x-collapse class="space-y-3 pb-4 border-b border-slate-700">
                     <label class="block text-xs text-slate-400 mb-1">Style</label>
                     <select x-model="theme.hands.minute.style" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm mb-2">
                         <option value="tapered">Tapered</option>
@@ -353,11 +387,16 @@
                             <input type="color" x-model="theme.hands.minute.glow_color" class="w-full h-7 rounded">
                         </div>
                     </template>
-                </fieldset>
+                    </div>
+                </div>
 
                 <!-- Second Hand -->
-                <fieldset class="border border-slate-600 rounded p-3 md:col-span-2">
-                    <legend class="text-sm text-slate-400 px-1">Second Hand</legend>
+                <div>
+                    <button @click="sections.secondHand = !sections.secondHand" class="w-full flex items-center justify-between py-2 text-sm font-medium text-slate-300 hover:text-white">
+                        <span>Second Hand</span>
+                        <svg :class="sections.secondHand && 'rotate-180'" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                    <div x-show="sections.secondHand" x-collapse class="space-y-3 pb-4 border-b border-slate-700">
                     <label class="toggle-switch mb-2">
                         <input type="checkbox" x-model="theme.hands.second.visible">
                         <div class="toggle-track"></div>
@@ -404,11 +443,16 @@
                             <input type="color" x-model="theme.hands.second.glow_color" class="w-full h-7 rounded">
                         </div>
                     </template>
-                </fieldset>
+                    </div>
+                </div>
 
                 <!-- Center Dot -->
-                <fieldset class="border border-slate-600 rounded p-3 md:col-span-2">
-                    <legend class="text-sm text-slate-400 px-1">Center Dot</legend>
+                <div>
+                    <button @click="sections.centerDot = !sections.centerDot" class="w-full flex items-center justify-between py-2 text-sm font-medium text-slate-300 hover:text-white">
+                        <span>Center Dot</span>
+                        <svg :class="sections.centerDot && 'rotate-180'" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                    <div x-show="sections.centerDot" x-collapse class="space-y-3 pb-4 border-b border-slate-700">
                     <label class="toggle-switch mb-2">
                         <input type="checkbox" x-model="theme.center_dot.visible">
                         <div class="toggle-track"></div>
@@ -418,11 +462,16 @@
                     <input type="color" x-model="theme.center_dot.color" class="w-full h-8 rounded mb-2">
                     <label class="block text-xs text-slate-400 mb-1">Radius: <span x-text="theme.center_dot.radius"></span></label>
                     <input type="range" x-model.number="theme.center_dot.radius" min="2" max="15" step="1" class="w-full">
-                </fieldset>
+                    </div>
+                </div>
 
                 <!-- Clock Text -->
-                <fieldset class="border border-slate-600 rounded p-3 md:col-span-2">
-                    <legend class="text-sm text-slate-400 px-1">Clock Text</legend>
+                <div>
+                    <button @click="sections.clockText = !sections.clockText" class="w-full flex items-center justify-between py-2 text-sm font-medium text-slate-300 hover:text-white">
+                        <span>Clock Text</span>
+                        <svg :class="sections.clockText && 'rotate-180'" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                    <div x-show="sections.clockText" x-collapse class="space-y-3 pb-4 border-b border-slate-700">
                     <label class="toggle-switch mb-2">
                         <input type="checkbox" x-model="theme.clock_text.visible">
                         <div class="toggle-track"></div>
@@ -439,11 +488,16 @@
                     <input type="range" x-model.number="theme.clock_text.font_size" min="0" max="80" step="1" class="w-full mb-2">
                     <label class="block text-xs text-slate-400 mb-1">Vertical Offset: <span x-text="theme.clock_text.offset_y + '%'"></span></label>
                     <input type="range" x-model.number="theme.clock_text.offset_y" min="-50" max="50" step="1" class="w-full">
-                </fieldset>
+                    </div>
+                </div>
 
                 <!-- Date Display -->
-                <fieldset class="border border-slate-600 rounded p-3 md:col-span-2">
-                    <legend class="text-sm text-slate-400 px-1">Date Display</legend>
+                <div>
+                    <button @click="sections.dateDisplay = !sections.dateDisplay" class="w-full flex items-center justify-between py-2 text-sm font-medium text-slate-300 hover:text-white">
+                        <span>Date Display</span>
+                        <svg :class="sections.dateDisplay && 'rotate-180'" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                    <div x-show="sections.dateDisplay" x-collapse class="space-y-3 pb-4 border-b border-slate-700">
                     <label class="toggle-switch mb-2">
                         <input type="checkbox" x-model="theme.date_display.visible">
                         <div class="toggle-track"></div>
@@ -460,11 +514,16 @@
                     <input type="range" x-model.number="theme.date_display.font_size" min="0" max="60" step="1" class="w-full mb-2">
                     <label class="block text-xs text-slate-400 mb-1">Vertical Offset: <span x-text="theme.date_display.offset_y + '%'"></span></label>
                     <input type="range" x-model.number="theme.date_display.offset_y" min="-50" max="50" step="1" class="w-full">
-                </fieldset>
+                    </div>
+                </div>
 
                 <!-- Agenda -->
-                <fieldset class="border border-slate-600 rounded p-3 md:col-span-2">
-                    <legend class="text-sm text-slate-400 px-1">Agenda</legend>
+                <div>
+                    <button @click="sections.agenda = !sections.agenda" class="w-full flex items-center justify-between py-2 text-sm font-medium text-slate-300 hover:text-white">
+                        <span>Agenda</span>
+                        <svg :class="sections.agenda && 'rotate-180'" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                    <div x-show="sections.agenda" x-collapse class="space-y-3 pb-2">
                     <label class="toggle-switch mb-2">
                         <input type="checkbox" x-model="theme.agenda.enabled">
                         <div class="toggle-track"></div>
@@ -481,8 +540,13 @@
                     <label class="block text-xs text-slate-400 mb-1">Outer Radius: <span x-text="theme.agenda.max_radius + '%'"></span></label>
                     <input type="range" x-model.number="theme.agenda.max_radius" min="5" max="100" step="5" class="w-full mb-2">
                     <label class="block text-xs text-slate-400 mb-1">Opacity: <span x-text="theme.agenda.opacity + '%'"></span></label>
-                    <input type="range" x-model.number="theme.agenda.opacity" min="5" max="100" step="5" class="w-full">
-                </fieldset>
+                    <input type="range" x-model.number="theme.agenda.opacity" min="5" max="100" step="5" class="w-full mb-2">
+                    <label class="block text-xs text-slate-400 mb-1">Now/Next Font Size: <span x-text="theme.agenda.font_size > 0 ? theme.agenda.font_size + 'px' : 'auto'"></span></label>
+                    <input type="range" x-model.number="theme.agenda.font_size" min="0" max="40" step="1" class="w-full mb-2">
+                    <label class="block text-xs text-slate-400 mb-1">Vertical Offset: <span x-text="theme.agenda.offset_y + '%'"></span></label>
+                    <input type="range" x-model.number="theme.agenda.offset_y" min="-100" max="100" step="1" class="w-full">
+                    </div>
+                </div>
             </div>
         </div><!-- end card / editor controls -->
 
@@ -517,6 +581,7 @@ function themeEditor() {
         theme: null,
         newName: '',
         showDeleteConfirm: false,
+        sections: { background: false, hourMarkers: false, hourText: false, minuteMarkers: false, alarmIndicators: false, hourHand: false, minuteHand: false, secondHand: false, centerDot: false, clockText: false, dateDisplay: false, agenda: false },
 
         async init() {
             if (this.themes.length > 0) {
@@ -579,10 +644,12 @@ function themeEditor() {
             if (this.theme.date_display.show_day_of_week == null) this.theme.date_display.show_day_of_week = true;
             if (this.theme.date_display.offset_y == null) this.theme.date_display.offset_y = -15;
             if (this.theme.date_display.font_size == null) this.theme.date_display.font_size = 0;
-            if (!this.theme.agenda) this.theme.agenda = {enabled:false, min_radius:0, max_radius:80, opacity:35, show_current_event:false};
+            if (!this.theme.agenda) this.theme.agenda = {enabled:false, min_radius:0, max_radius:80, opacity:35, show_current_event:false, font_size:0};
             if (this.theme.background.image_opacity == null) this.theme.background.image_opacity = 100;
             if (this.theme.background.color_opacity == null) this.theme.background.color_opacity = 100;
             if (this.theme.agenda.show_current_event == null) this.theme.agenda.show_current_event = false;
+            if (this.theme.agenda.font_size == null) this.theme.agenda.font_size = 0;
+            if (this.theme.agenda.offset_y == null) this.theme.agenda.offset_y = 0;
 
             this.$nextTick(() => {
                 startClockPreview('theme-preview', this.theme);

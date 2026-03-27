@@ -114,6 +114,8 @@ THEME_SCHEMA = {
         "max_radius": (int, float),  # % of clock radius for outer edge
         "opacity": (int, float),     # 0-100, fill opacity
         "show_current_event": bool,  # show active event title on clock face
+        "font_size": (int, float),   # 0 = auto (7% of radius for now, 6% for next)
+        "offset_y": (int, float),    # % of radius, vertical offset for now/next text
     },
     "dial": {
         "arc_start": (int, float),       # degrees, 0=top, clockwise
@@ -281,6 +283,8 @@ DEFAULT_THEME = {
         "max_radius": 80,
         "opacity": 35,
         "show_current_event": False,
+        "font_size": 0,
+        "offset_y": 0,
     },
     "dial": {
         "arc_start": 135,

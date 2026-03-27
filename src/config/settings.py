@@ -3,6 +3,7 @@
 import json
 import os
 import threading
+import time
 
 _DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data")
 _SETTINGS_PATH = os.path.join(_DATA_DIR, "settings.json")
@@ -24,7 +25,6 @@ def _read_json(path, default=None):
         except (FileNotFoundError, json.JSONDecodeError):
             return default
         except PermissionError:
-            import time
             time.sleep(0.02)
     return default
 
@@ -40,7 +40,6 @@ def _write_json(path, data):
             os.replace(tmp, path)
             return
         except PermissionError:
-            import time
             time.sleep(0.02)
     os.replace(tmp, path)
 

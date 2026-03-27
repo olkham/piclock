@@ -10,6 +10,7 @@ let _cachedThemeJSON = '';  // serialised theme for cache invalidation
 let _previewTimezone = null; // IANA timezone string (e.g. "America/New_York")
 let _bgImageCache = {};    // cache loaded background images by URL
 let _agendaEvents = [];    // cached agenda events for pie chart
+let _alarmData = [];       // cached alarm data for indicator dots
 let _tzTransitionStart = 0;     // performance.now() when tz transition began
 let _tzOldAngles = null;        // {hour, minute, second} angles at start of transition
 const _TZ_TRANSITION_DURATION = 1000; // ms
@@ -54,12 +55,17 @@ function startClockPreview(canvasId, theme, timezone) {
     const canvas = document.getElementById(canvasId);
     if (!canvas || !theme) return;
 
-    // Fetch agenda events for pie chart preview
+    // Fetch agenda events and alarms for preview
     fetch('/api/agenda').then(r => r.json()).then(events => {
         _agendaEvents = events || [];
         _staticCache = null;
         _cachedThemeJSON = '';
     }).catch(() => { _agendaEvents = []; });
+    fetch('/api/alarms').then(r => r.json()).then(alarms => {
+        _alarmData = alarms || [];
+        _staticCache = null;
+        _cachedThemeJSON = '';
+    }).catch(() => { _alarmData = []; });
 
     let lastSec = -1;
     function tick() {
@@ -155,6 +161,7 @@ function buildStaticLayer(size, center, radius, theme) {
     drawBackground(ctx, size, center, radius, theme);
     drawAgenda(ctx, center, radius, theme, _agendaEvents);
     drawMarkers(ctx, center, radius, theme);
+    drawAlarmIndicators(ctx, center, radius, theme, _alarmData);
 
     ctx.restore();
 
@@ -580,12 +587,25 @@ function drawDateDisplay(ctx, center, radius, theme) {
     ctx.fillText(text, center, center + offsetY);
 }
 
+function _formatTimeUntil(mins) {
+    if (mins >= 60) {
+        const h = Math.floor(mins / 60);
+        const m = mins % 60;
+        return m > 0 ? `in ${h}h ${m}m` : `in ${h}h`;
+    }
+    return `in ${mins}m`;
+}
+
 function drawCurrentEvent(ctx, center, radius, time, theme) {
     const cfg = theme.agenda || {};
     if (!cfg.show_current_event || !_agendaEvents || _agendaEvents.length === 0) return;
 
     const currentMins = time.hour * 60 + time.minute;
     let active = null;
+    let nextEvent = null;
+    let nextDelta = 0;
+    const MAX_NEXT_HOURS = 3;
+
     for (const ev of _agendaEvents) {
         const ss = (ev.start_time || '').split(':');
         const es = (ev.end_time || '').split(':');
@@ -593,15 +613,20 @@ function drawCurrentEvent(ctx, center, radius, time, theme) {
         let startMins = parseInt(ss[0], 10) * 60 + parseInt(ss[1], 10);
         let endMins = parseInt(es[0], 10) * 60 + parseInt(es[1], 10);
         if (endMins <= startMins) endMins += 24 * 60;
-        if (startMins <= currentMins && currentMins < endMins) {
+        if (!active && startMins <= currentMins && currentMins < endMins) {
             active = ev;
-            break;
+        } else if (!nextEvent && startMins > currentMins) {
+            const delta = startMins - currentMins;
+            if (delta <= MAX_NEXT_HOURS * 60) {
+                nextEvent = ev;
+                nextDelta = delta;
+            }
         }
     }
-    if (!active || !active.title) return;
 
-    const color = hexToCSS(active.color || '#4488ff');
-    let display = '\uD83D\uDCC5 Now: ' + active.title;
+    if (!active && !nextEvent) return;
+
+    // Compute Y position
     const ct = theme.clock_text || {};
     let yPos;
     if (ct.visible) {
@@ -612,22 +637,87 @@ function drawCurrentEvent(ctx, center, radius, time, theme) {
         yPos = center + radius * 0.25;
     }
 
-    const fs = radius * 0.07;
-    ctx.font = `${fs}px sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
-    const maxW = radius * 1.2;
-    while (ctx.measureText(display).width > maxW && display.length > 3) {
-        display = display.slice(0, -2) + '\u2026';
+    const eventOffsetY = cfg.offset_y || 0;
+    if (eventOffsetY) {
+        yPos = center + eventOffsetY / 100 * radius;
     }
 
-    // Shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.4)';
-    ctx.fillText(display, center + 1, yPos + 1);
-    // Text
-    ctx.fillStyle = color;
-    ctx.fillText(display, center, yPos);
+    const scale = radius / 360;
+    const baseFontSz = cfg.font_size || 0;
+    const primaryFs = (baseFontSz > 0) ? baseFontSz * scale : radius * 0.07;
+    const secondaryFs = (baseFontSz > 0) ? baseFontSz * 0.85 * scale : radius * 0.06;
+    const maxW = radius * 1.2;
+
+    function _drawLine(text, y, fs, color, alpha) {
+        ctx.font = `${fs}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        let display = text;
+        while (ctx.measureText(display).width > maxW && display.length > 3) {
+            display = display.slice(0, -2) + '\u2026';
+        }
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = 'rgba(0,0,0,0.4)';
+        ctx.fillText(display, center + 1, y + 1);
+        ctx.fillStyle = color;
+        ctx.fillText(display, center, y);
+        ctx.globalAlpha = 1.0;
+        return y;
+    }
+
+    if (active && active.title) {
+        const color = hexToCSS(active.color || '#4488ff');
+        _drawLine('\uD83D\uDCC5 Now: ' + active.title, yPos, primaryFs, color, 1.0);
+
+        if (nextEvent && nextEvent.title) {
+            const nextY = yPos + primaryFs * 1.4;
+            const nextText = 'Next: ' + nextEvent.title + ' ' + _formatTimeUntil(nextDelta);
+            _drawLine(nextText, nextY, secondaryFs, color, 0.6);
+        }
+    } else if (nextEvent && nextEvent.title) {
+        const color = hexToCSS(nextEvent.color || '#4488ff');
+        const nextText = '\uD83D\uDCC5 Next: ' + nextEvent.title + ' ' + _formatTimeUntil(nextDelta);
+        _drawLine(nextText, yPos, primaryFs, color, 1.0);
+    }
+}
+
+function drawAlarmIndicators(ctx, center, radius, theme, alarms) {
+    const cfg = theme.alarm_indicators || {};
+    if (cfg.visible === false || !alarms || alarms.length === 0) return;
+
+    const color = hexToCSS(cfg.color || '#ffaa00');
+    const dotSize = (cfg.size || 4) * (radius / 360);
+
+    for (const alarm of alarms) {
+        const timeStr = alarm.time || '';
+        if (!timeStr || alarm.enabled === false) continue;
+        const parts = timeStr.split(':');
+        if (parts.length < 2) continue;
+        const hour = parseInt(parts[0], 10) % 12;
+        const minute = parseInt(parts[1], 10);
+        const angle = ((hour + minute / 60) * 30 - 90) * Math.PI / 180;
+
+        const x = center + radius * 0.70 * Math.cos(angle);
+        const y = center + radius * 0.70 * Math.sin(angle);
+
+        // Dot
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(x, y, dotSize, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Triangle pointer
+        const tipX = center + radius * 0.74 * Math.cos(angle);
+        const tipY = center + radius * 0.74 * Math.sin(angle);
+        const perp = angle + Math.PI / 2;
+        const baseOff = dotSize * 0.6;
+        ctx.beginPath();
+        ctx.moveTo(tipX, tipY);
+        ctx.lineTo(x + baseOff * Math.cos(perp), y + baseOff * Math.sin(perp));
+        ctx.lineTo(x - baseOff * Math.cos(perp), y - baseOff * Math.sin(perp));
+        ctx.closePath();
+        ctx.fill();
+    }
 }
 
 function drawHand(ctx, center, radius, angleDeg, end, width, color, start, style, shadow, glow, glowColor) {

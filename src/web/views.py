@@ -36,24 +36,20 @@ def create_views_blueprint():
 
     @bp.route("/dial")
     def dial():
-        settings = current_app.settings
         dtm = current_app.dial_theme_manager
         return render_template(
             "dial.html",
-            display_mode=settings.get("display_mode", "clock"),
             dial_themes=dtm.list_themes(),
-            active_dial_theme=settings.get("active_dial_theme", "Default Dial"),
+            active_dial_theme=current_app.settings.get("active_dial_theme", "Default Dial"),
         )
 
     @bp.route("/timer")
     def timer():
-        settings = current_app.settings
         dtm = current_app.dial_theme_manager
         return render_template(
             "timer.html",
-            display_mode=settings.get("display_mode", "clock"),
             dial_themes=dtm.list_themes(),
-            active_dial_theme=settings.get("active_dial_theme", "Default Dial"),
+            active_dial_theme=current_app.settings.get("active_dial_theme", "Default Dial"),
         )
 
     @bp.route("/settings")

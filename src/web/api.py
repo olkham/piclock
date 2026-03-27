@@ -22,6 +22,13 @@ ALLOWED_IMAGE_EXT = {"png", "jpg", "jpeg", "gif", "bmp", "webp"}
 ALLOWED_SOUND_EXT = {"wav", "ogg", "mp3"}
 MAX_IMAGE_SIZE = 720  # max width/height in pixels
 
+_TIME_RE = re.compile(r'^\d{1,2}:\d{2}$')
+
+
+def _get_extension(filename):
+    """Extract and lowercase the file extension from *filename*."""
+    return filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+
 
 def create_api_blueprint():
     bp = Blueprint("api", __name__)
@@ -191,7 +198,7 @@ def create_api_blueprint():
         if file.filename == "":
             return jsonify({"error": "No selected file"}), 400
 
-        ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
+        ext = _get_extension(file.filename)
         if ext not in ALLOWED_IMAGE_EXT:
             return jsonify({"error": f"File type not allowed. Allowed: {ALLOWED_IMAGE_EXT}"}), 400
 
@@ -226,10 +233,11 @@ def create_api_blueprint():
 
     @bp.route("/sounds", methods=["GET"])
     def list_sounds():
-        os.makedirs(SOUNDS_DIR, exist_ok=True)
+        if not os.path.isdir(SOUNDS_DIR):
+            return jsonify([])
         sounds = []
         for f in os.listdir(SOUNDS_DIR):
-            ext = f.rsplit(".", 1)[-1].lower() if "." in f else ""
+            ext = _get_extension(f)
             if ext in ALLOWED_SOUND_EXT:
                 sounds.append(f.rsplit(".", 1)[0])
         return jsonify(sorted(set(sounds)))
@@ -242,7 +250,7 @@ def create_api_blueprint():
         if file.filename == "":
             return jsonify({"error": "No selected file"}), 400
 
-        ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
+        ext = _get_extension(file.filename)
         if ext not in ALLOWED_SOUND_EXT:
             return jsonify({"error": f"File type not allowed. Allowed: {ALLOWED_SOUND_EXT}"}), 400
 
@@ -365,7 +373,6 @@ def create_api_blueprint():
         data = request.get_json()
         if not data or "title" not in data or "start_time" not in data or "end_time" not in data:
             return jsonify({"error": "Missing required fields: title, start_time, end_time"}), 400
-        _TIME_RE = re.compile(r'^\d{1,2}:\d{2}$')
         if not _TIME_RE.match(data["start_time"]) or not _TIME_RE.match(data["end_time"]):
             return jsonify({"error": "Invalid time format. Use HH:MM"}), 400
         event = _create_event(data)

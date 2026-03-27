@@ -31,7 +31,7 @@
             <h2 class="text-lg font-semibold mb-4">Status</h2>
             <div class="space-y-2 text-sm">
                 <div class="flex justify-between">
-                    <span class="text-slate-400">Active Theme</span>
+                    <span class="text-slate-400">Active Clock Face</span>
                     <span class="font-medium" x-text="activeTheme"></span>
                 </div>
                 <div class="flex justify-between">
@@ -46,7 +46,7 @@
             <h2 class="text-lg font-semibold mb-4">Quick Settings</h2>
             <div class="space-y-4">
                 <div>
-                    <label class="block text-sm text-slate-400 mb-1">Theme</label>
+                    <label class="block text-sm text-slate-400 mb-1">Clock Face</label>
                     <select x-model="selectedTheme" @change="activateTheme()"
                             class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
                         <template x-for="t in themes" :key="t">

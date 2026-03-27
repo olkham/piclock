@@ -5,7 +5,6 @@ tick marks, and smooth animation. Controlled via REST API; visual
 defaults come from the active theme's ``dial`` section.
 """
 
-import functools
 import math
 import sys
 import time
@@ -13,6 +12,7 @@ import time
 import cairo
 import numpy as np
 
+from src.clock.color import hex_to_rgb
 from src.clock.display import DISPLAY_SIZE
 from src.clock.face import draw_background
 
@@ -38,13 +38,6 @@ _static_dial_surface = None
 _static_dial_dirty = True
 _last_dial_theme_id = None
 _last_dial_state_id = None
-
-
-@functools.lru_cache(maxsize=64)
-def _hex_to_rgb(hex_color):
-    """Convert hex color string to (r, g, b) floats 0-1."""
-    hex_color = hex_color.lstrip("#")
-    return tuple(int(hex_color[i:i + 2], 16) / 255.0 for i in (0, 2, 4))
 
 
 def _create_mask_surface():
@@ -152,7 +145,7 @@ def _render_static_dial_layer(dial_theme, dial_state, dial_cfg, arc_geo):
         _draw_track_gradient(ctx, center, radius, thickness, cap, dial_cfg, start_rad, end_rad, track_opacity)
     else:
         track_color = dial_cfg.get("track_color", "#ffffff")
-        tr, tg, tb = _hex_to_rgb(track_color)
+        tr, tg, tb = hex_to_rgb(track_color)
         ctx.set_source_rgba(tr, tg, tb, track_opacity)
         ctx.arc(center, center, radius, start_rad, end_rad)
         ctx.stroke()
@@ -167,7 +160,7 @@ def _render_static_dial_layer(dial_theme, dial_state, dial_cfg, arc_geo):
 
     # Value text (uses raw value from dial_state, not animated display_progress)
     if dial_cfg.get("show_value", False) or "value_text" in dial_state:
-        _draw_value_text(ctx, center, size, radius, dial_cfg, dial_state, 0)
+        _draw_value_text(ctx, center, size, radius, dial_cfg, dial_state)
 
     # Min/Max labels
     if dial_cfg.get("show_min_max", False):
@@ -271,7 +264,7 @@ def _draw_progress_arc(ctx, center, radius, thickness, cap, dial_cfg, dial_state
     style = dial_cfg.get("style", "solid")
 
     progress_color = dial_state.get("progress_color") or dial_cfg.get("progress_color", "#00D68F")
-    pr, pg, pb = _hex_to_rgb(progress_color)
+    pr, pg, pb = hex_to_rgb(progress_color)
 
     ctx.set_line_width(thickness)
     ctx.set_line_cap(cap)
@@ -283,7 +276,7 @@ def _draw_progress_arc(ctx, center, radius, thickness, cap, dial_cfg, dial_state
 
     if style == "gradient":
         grad_end_color = dial_cfg.get("gradient_end_color", "#ff4444")
-        er, eg, eb = _hex_to_rgb(grad_end_color)
+        er, eg, eb = hex_to_rgb(grad_end_color)
         sx = center + radius * math.cos(start_rad)
         sy = center + radius * math.sin(start_rad)
         ex = center + radius * math.cos(progress_end)
@@ -311,7 +304,7 @@ def _draw_track_zones(ctx, center, radius, thickness, cap, dial_cfg, start_rad, 
         z_from = zone.get("from", 0) / 100.0
         z_to = zone.get("to", 100) / 100.0
         z_color = zone.get("color", "#ffffff")
-        zr, zg, zb = _hex_to_rgb(z_color)
+        zr, zg, zb = hex_to_rgb(z_color)
         seg_start = start_rad + arc_sweep * z_from
         seg_end = start_rad + arc_sweep * z_to
         ctx.set_line_width(thickness)
@@ -325,8 +318,8 @@ def _draw_track_gradient(ctx, center, radius, thickness, cap, dial_cfg, start_ra
     """Draw the track with a smooth colour gradient."""
     start_color = dial_cfg.get("track_gradient_start", "#22c55e")
     end_color = dial_cfg.get("track_gradient_end", "#ef4444")
-    sr, sg, sb = _hex_to_rgb(start_color)
-    er, eg, eb = _hex_to_rgb(end_color)
+    sr, sg, sb = hex_to_rgb(start_color)
+    er, eg, eb = hex_to_rgb(end_color)
 
     sx = center + radius * math.cos(start_rad)
     sy = center + radius * math.sin(start_rad)
@@ -360,7 +353,7 @@ def _draw_ticks(ctx, center, size, dial_cfg, start_rad, arc_sweep):
     maj_outer = dial_cfg.get("major_tick_outer_radius", 78) / 100 * half
     maj_width = dial_cfg.get("major_tick_width", 2)
     maj_color = dial_cfg.get("major_tick_color", "#888888")
-    mr, mg, mb = _hex_to_rgb(maj_color)
+    mr, mg, mb = hex_to_rgb(maj_color)
 
     ctx.set_line_cap(cairo.LINE_CAP_BUTT)
 
@@ -372,7 +365,7 @@ def _draw_ticks(ctx, center, size, dial_cfg, start_rad, arc_sweep):
             min_outer = dial_cfg.get("minor_tick_outer_radius", 77) / 100 * half
             min_width = dial_cfg.get("minor_tick_width", 1)
             min_color = dial_cfg.get("minor_tick_color", "#555555")
-            mnr, mng, mnb = _hex_to_rgb(min_color)
+            mnr, mng, mnb = hex_to_rgb(min_color)
 
             ctx.set_source_rgb(mnr, mng, mnb)
             ctx.set_line_width(min_width)
@@ -410,7 +403,7 @@ def _draw_hand(ctx, center, size, dial_cfg, angle):
     base_w = width_pct / 100 * radius_for_width
     style = dial_cfg.get("hand_style", "triangle")
     color = dial_cfg.get("hand_color", "#ffffff")
-    hr, hg, hb = _hex_to_rgb(color)
+    hr, hg, hb = hex_to_rgb(color)
 
     cos_a = math.cos(angle)
     sin_a = math.sin(angle)
@@ -468,7 +461,7 @@ def _draw_hand_center_dot(ctx, center, size, dial_cfg):
     half = size / 2
     dot_r = dial_cfg.get("hand_center_dot_radius", 4) / 100 * half
     dot_color = dial_cfg.get("hand_center_dot_color", "#333333")
-    dr, dg, db = _hex_to_rgb(dot_color)
+    dr, dg, db = hex_to_rgb(dot_color)
 
     ctx.arc(center, center, dot_r, 0, 2 * math.pi)
     ctx.set_source_rgb(dr, dg, db)
@@ -481,7 +474,7 @@ def _draw_hand_center_dot(ctx, center, size, dial_cfg):
     ctx.stroke()
 
 
-def _draw_value_text(ctx, center, size, radius, dial_cfg, dial_state, display_progress):
+def _draw_value_text(ctx, center, size, radius, dial_cfg, dial_state):
     """Draw the current numeric value with optional suffix."""
     # Allow explicit override (e.g. timer formatted time)
     value_str = dial_state.get("value_text")
@@ -496,7 +489,7 @@ def _draw_value_text(ctx, center, size, radius, dial_cfg, dial_state, display_pr
 
     offset_y = dial_cfg.get("value_offset_y", 12) / 100 * radius
     color = dial_cfg.get("value_color", "#ffffff")
-    vr, vg, vb = _hex_to_rgb(color)
+    vr, vg, vb = hex_to_rgb(color)
 
     ctx.select_font_face(_SANS_FONT, cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
     ctx.set_font_size(font_size)
@@ -519,7 +512,7 @@ def _draw_min_max(ctx, center, size, radius, dial_cfg, dial_state, start_rad, en
     min_val = dial_state.get("min_value", 0)
     max_val = dial_state.get("max_value", 100)
     color = dial_cfg.get("min_max_color", "#666666")
-    mr, mg, mb = _hex_to_rgb(color)
+    mr, mg, mb = hex_to_rgb(color)
 
     font_size = dial_cfg.get("min_max_font_size", 0)
     if font_size <= 0:
@@ -554,7 +547,7 @@ def _draw_dial_text(ctx, center, size, radius, dial_cfg, dial_state):
     if label_font_size <= 0:
         label_font_size = size * 0.045  # 4.5% of display = ~32px
 
-    lr, lg, lb = _hex_to_rgb(label_color)
+    lr, lg, lb = hex_to_rgb(label_color)
     ctx.select_font_face(_SANS_FONT, cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
     ctx.set_font_size(label_font_size)
     extents = ctx.text_extents(label)

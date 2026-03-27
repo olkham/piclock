@@ -5,7 +5,7 @@ import sys
 import time
 
 import cairo
-
+from src.clock.color import hex_to_rgb
 _FONT = "Arial" if sys.platform == "win32" else "sans-serif"
 
 # Speed multipliers
@@ -36,7 +36,7 @@ class AlarmOverlay:
         elapsed = time.time() - self._start_time
         pulse = (math.sin(elapsed * self._speed) + 1) / 2  # 0..1
 
-        r, g, b = _hex_to_rgb(self._color)
+        r, g, b = hex_to_rgb(self._color)
 
         if self._shape == "flash":
             self._draw_flash(ctx, size, center, radius, pulse, r, g, b)
@@ -121,11 +121,6 @@ class AlarmOverlay:
         alpha = 0.3 + pulse * 0.5
         ctx.set_source_surface(self._glow_surface, 0, 0)
         ctx.paint_with_alpha(alpha)
-
-
-def _hex_to_rgb(hex_color):
-    hex_color = hex_color.lstrip("#")
-    return tuple(int(hex_color[i:i+2], 16) / 255.0 for i in (0, 2, 4))
 
 
 def _draw_bell_icon(ctx, cx, cy, size):

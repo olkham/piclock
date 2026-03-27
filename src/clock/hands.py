@@ -3,6 +3,7 @@ import os
 
 import cairo
 
+from src.clock.color import hex_to_rgb
 from src.clock.effects import draw_shadow, draw_glow
 
 
@@ -97,7 +98,7 @@ def draw_hands(ctx, size, time_info, theme, hand_angles=None):
     # Center dot
     dot = theme.get("center_dot", {})
     if dot.get("visible", True):
-        r, g, b = _hex_to_rgb(dot.get("color", "#ffffff"))
+        r, g, b = hex_to_rgb(dot.get("color", "#ffffff"))
         ctx.set_source_rgb(r, g, b)
         ctx.arc(center, center, dot.get("radius", 6), 0, 2 * math.pi)
         ctx.fill()
@@ -127,7 +128,7 @@ def _draw_hand(ctx, center, angle_deg, start, end, width, color,
     if shadow:
         draw_shadow(ctx, lambda c: _stroke_hand(c, center, tip_x, tip_y, tail_x, tail_y, width, style, angle))
 
-    r, g, b = _hex_to_rgb(color)
+    r, g, b = hex_to_rgb(color)
     ctx.set_source_rgb(r, g, b)
     _stroke_hand(ctx, center, tip_x, tip_y, tail_x, tail_y, width, style, angle)
 
@@ -181,7 +182,7 @@ def _draw_second_hand(ctx, center, angle_deg, start, end, color, shadow,
             c, tail_x, tail_y, tip_x, tip_y, center, angle, radius,
             counterweight, counterweight_radius))
 
-    r, g, b = _hex_to_rgb(color)
+    r, g, b = hex_to_rgb(color)
     ctx.set_source_rgb(r, g, b)
     _stroke_second(ctx, tail_x, tail_y, tip_x, tip_y, center, angle, radius,
                    counterweight, counterweight_radius)
@@ -232,7 +233,3 @@ def _draw_image_hand(ctx, center, angle_deg, image_path, length, radius):
     ctx.paint()
     ctx.restore()
 
-
-def _hex_to_rgb(hex_color):
-    hex_color = hex_color.lstrip("#")
-    return tuple(int(hex_color[i:i+2], 16) / 255.0 for i in (0, 2, 4))
