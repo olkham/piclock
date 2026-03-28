@@ -261,6 +261,18 @@ fi
 
 systemctl start piclock.service
 
+# --- Optional: replace Raspberry Pi boot splash ---
+if [ "$IS_RPI" = true ] && [ -f "$PROJECT_DIR/data/boot/boot.png" ]; then
+    SPLASH_DIR="/usr/share/plymouth/themes/pix"
+    if [ -d "$SPLASH_DIR" ]; then
+        echo ""
+        echo "Replacing Raspberry Pi boot splash with PiClock image..."
+        cp "$SPLASH_DIR/splash.png" "$SPLASH_DIR/splash.png.bak" 2>/dev/null || true
+        cp "$PROJECT_DIR/data/boot/boot.png" "$SPLASH_DIR/splash.png"
+        echo "  Boot splash replaced (original backed up to splash.png.bak)."
+    fi
+fi
+
 # --- Optional: disable Radxa onboard heartbeat LED ---
 if [ -e /sys/class/leds/board-led/trigger ] && grep -qi "radxa" /proc/device-tree/model 2>/dev/null; then
     echo ""
