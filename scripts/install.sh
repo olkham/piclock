@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 # PiClock Installation Script
-# Run on Raspberry Pi: sudo bash scripts/install.sh
+# Supports: Raspberry Pi OS, Debian, Ubuntu
+# Usage:    sudo bash scripts/install.sh [--kms]
+#
 # Installs dependencies, creates a venv, and sets up a systemd service
 # that runs PiClock directly from this project directory.
 #
 # Options:
 #   --kms   Use KMS/DRM mode (bypass X11 for tear-free rendering).
-#           The Pi should boot to console (multi-user.target), not desktop.
+#           The machine should boot to console (multi-user.target), not desktop.
+#           Primarily useful on Raspberry Pi with a directly-connected display.
 #   (default) Use X11 mode — requires desktop/graphical session.
 
 set -e
@@ -31,10 +34,18 @@ fi
 SERVICE_HOME=$(eval echo "~$SERVICE_USER")
 SERVICE_UID=$(id -u "$SERVICE_USER")
 
+# Detect distro
+DISTRO="unknown"
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    DISTRO="$ID"
+fi
+
 echo "=== PiClock Installer ==="
 echo ""
 echo "Project directory: $PROJECT_DIR"
 echo "Service user:      $SERVICE_USER"
+echo "Detected distro:   $DISTRO"
 if [ "$USE_KMS" = true ]; then
     echo "Display mode:      KMS/DRM (bypass X11, tear-free)"
 else
@@ -42,10 +53,17 @@ else
 fi
 echo ""
 
-# Check we're on a Pi (or at least Linux)
+# Check we're on Linux
 if [ "$(uname)" != "Linux" ]; then
-    echo "This installer is designed for Raspberry Pi / Linux."
+    echo "This installer is designed for Debian-based Linux (Raspberry Pi OS, Debian, Ubuntu)."
     echo "For development on other platforms, use: pip install -r requirements.txt"
+    exit 1
+fi
+
+# Check for apt (Debian-based)
+if ! command -v apt-get &>/dev/null; then
+    echo "ERROR: apt-get not found. This installer requires a Debian-based distro"
+    echo "(Raspberry Pi OS, Debian, or Ubuntu)."
     exit 1
 fi
 
@@ -174,12 +192,14 @@ systemctl enable piclock.service
 
 if [ "$USE_KMS" = true ]; then
     # Switch boot target to console — this is REQUIRED for KMS/DRM.
-    # lightdm holds DRM master when running, which prevents KMS/DRM from
-    # initialising even with the correct permissions.
+    # The display manager holds DRM master when running, which prevents
+    # KMS/DRM from initialising even with the correct permissions.
     echo "  Switching boot target to multi-user (console)..."
     systemctl set-default multi-user.target
-    # Stop lightdm now so the service start below succeeds immediately
-    systemctl stop lightdm 2>/dev/null || true
+    # Stop display manager so the service start below succeeds immediately
+    for dm in lightdm gdm3 gdm sddm; do
+        systemctl stop "$dm" 2>/dev/null || true
+    done
 fi
 
 systemctl start piclock.service
