@@ -715,6 +715,150 @@ def create_api_blueprint():
         _start_theme_cycle()
         return jsonify({"status": "ok"})
 
+    # --- Faces (element-based) ---
+
+    @bp.route("/faces", methods=["GET"])
+    def list_faces():
+        fm = current_app.face_manager
+        names = fm.list_themes()
+        active = current_app.settings.get("active_face", "")
+        return jsonify({"faces": names, "active": active})
+
+    @bp.route("/faces/<name>", methods=["GET"])
+    def get_face(name):
+        fm = current_app.face_manager
+        face = fm.get_theme(name)
+        if face is None:
+            return jsonify({"error": "Face not found"}), 404
+        return jsonify(face)
+
+    @bp.route("/faces", methods=["POST"])
+    def create_face():
+        from src.alarms.ipc import write_nudge
+        fm = current_app.face_manager
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "Invalid JSON body"}), 400
+        try:
+            face = fm.save_theme(data)
+            write_nudge()
+            return jsonify(face), 201
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+
+    @bp.route("/faces/<name>", methods=["PUT"])
+    def update_face(name):
+        from src.alarms.ipc import write_nudge
+        fm = current_app.face_manager
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "Invalid JSON body"}), 400
+        data["name"] = name
+        try:
+            face = fm.save_theme(data)
+            write_nudge()
+            return jsonify(face)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+
+    @bp.route("/faces/<name>", methods=["DELETE"])
+    def delete_face(name):
+        from src.alarms.ipc import write_nudge
+        fm = current_app.face_manager
+        try:
+            fm.delete_theme(name)
+            write_nudge()
+            return jsonify({"status": "ok"})
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+
+    @bp.route("/faces/<name>/activate", methods=["POST"])
+    def activate_face(name):
+        from src.alarms.ipc import write_nudge
+        fm = current_app.face_manager
+        try:
+            fm.set_active(name)
+            write_nudge()
+            return jsonify({"status": "ok", "active": name})
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+
+    @bp.route("/faces/deactivate", methods=["POST"])
+    def deactivate_face():
+        from src.alarms.ipc import write_nudge
+        current_app.settings.set("active_face", "")
+        write_nudge()
+        return jsonify({"status": "ok", "active": ""})
+
+    @bp.route("/faces/<name>/export", methods=["GET"])
+    def export_face(name):
+        fm = current_app.face_manager
+        try:
+            json_str = fm.export_theme(name)
+            return Response(
+                json_str,
+                mimetype="application/json",
+                headers={"Content-Disposition": f"attachment; filename={name}.json"},
+            )
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 404
+
+    @bp.route("/faces/import", methods=["POST"])
+    def import_face():
+        from src.alarms.ipc import write_nudge
+        fm = current_app.face_manager
+        if request.content_type and "multipart" in request.content_type:
+            if "file" not in request.files:
+                return jsonify({"error": "No file part"}), 400
+            file = request.files["file"]
+            json_str = file.read().decode("utf-8")
+        else:
+            json_str = request.get_data(as_text=True)
+        try:
+            face = fm.import_theme(json_str)
+            write_nudge()
+            return jsonify(face), 201
+        except (json.JSONDecodeError, ValueError) as e:
+            return jsonify({"error": str(e)}), 400
+
+    @bp.route("/faces/convert-theme", methods=["POST"])
+    def convert_theme_to_face():
+        """Convert a legacy clock or dial theme to a face."""
+        from src.alarms.ipc import write_nudge
+        fm = current_app.face_manager
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "Invalid JSON body"}), 400
+        source_type = data.get("type", "clock")
+        theme_name = data.get("name", "")
+        if source_type == "clock":
+            tm = current_app.theme_manager
+            theme = tm.get_theme(theme_name)
+            if not theme:
+                return jsonify({"error": "Theme not found"}), 404
+            face = fm.convert_and_import_clock_theme(theme)
+        elif source_type == "dial":
+            dtm = current_app.dial_theme_manager
+            theme = dtm.get_theme(theme_name)
+            if not theme:
+                return jsonify({"error": "Dial theme not found"}), 404
+            face = fm.convert_and_import_dial_theme(theme)
+        else:
+            return jsonify({"error": "type must be 'clock' or 'dial'"}), 400
+        write_nudge()
+        return jsonify(face), 201
+
+    @bp.route("/faces/element-types", methods=["GET"])
+    def get_element_types():
+        """Return available element types and their default properties."""
+        from src.faces.elements import ELEMENT_TYPES, ELEMENT_DEFAULTS, DATA_SOURCES, BINDABLE_PROPERTIES
+        return jsonify({
+            "element_types": sorted(ELEMENT_TYPES),
+            "element_defaults": ELEMENT_DEFAULTS,
+            "data_sources": sorted(DATA_SOURCES),
+            "bindable_properties": {k: sorted(v) for k, v in BINDABLE_PROPERTIES.items()},
+        })
+
     return bp
 
 

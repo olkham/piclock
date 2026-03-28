@@ -71,4 +71,13 @@ def create_views_blueprint():
             active_theme=settings.get("active_theme", "Classic"),
         )
 
+    @bp.route("/faces")
+    def faces():
+        fm = current_app.face_manager
+        return render_template(
+            "faces.html",
+            faces=fm.list_themes(),
+            active_face=current_app.settings.get("active_face", ""),
+        )
+
     return bp

@@ -14,6 +14,9 @@ from src.alarms.ipc import check_nudge, read_dial_state, read_timer_state, write
 from src.clock.renderer import render_frame
 from src.clock.dial import render_dial_frame
 from src.clock.display import show_frame_from_buffer
+from src.faces.datasources import DataContext
+from src.faces.manager import FaceManager
+from src.faces.renderer import render_face_frame
 from src.themes.dial_manager import DialThemeManager
 
 
@@ -48,6 +51,7 @@ class ClockEngine:
     def __init__(self, theme_manager, settings):
         self._theme_manager = theme_manager
         self._dial_theme_manager = DialThemeManager(settings)
+        self._face_manager = FaceManager(settings)
         self._settings = settings
         self._running = False
         self._alarm_callback = None
@@ -70,6 +74,8 @@ class ClockEngine:
         self._cfg_timezone = "UTC"
         self._cfg_tz = ZoneInfo("UTC")
         self._cfg_theme = None
+        # Active face (new element-based system — overrides theme when set)
+        self._cfg_face = None
         # Reusable dict avoids per-frame dict allocation
         self._time_info = {"hour": 0, "minute": 0, "second": 0, "microsecond": 0}
         # Frame timing diagnostics (enabled via --debug-fps)
@@ -286,8 +292,17 @@ class ClockEngine:
                 # Get active theme (cached, refreshed every 2s)
                 theme = self._cfg_theme or self._theme_manager.get_active_theme()
 
-                # Determine if smooth second hand is enabled (per-theme setting)
-                smooth = theme.get("hands", {}).get("second", {}).get("smooth", False)
+                # Determine if smooth second hand is enabled
+                if self._cfg_face:
+                    # For faces: check if any hand bound to second_angle has smooth=True
+                    smooth = any(
+                        el.get("properties", {}).get("smooth", False)
+                        for el in self._cfg_face.get("elements", [])
+                        if el.get("type") == "hand"
+                        and el.get("bindings", {}).get("angle", {}).get("source") == "time.second_angle"
+                    )
+                else:
+                    smooth = theme.get("hands", {}).get("second", {}).get("smooth", False)
                 if not smooth:
                     # Snap second hand to integer seconds
                     time_info["microsecond"] = 0
@@ -319,13 +334,28 @@ class ClockEngine:
                     self._timer_cached_buf = rgb_buf
                     show_frame_from_buffer(rgb_buf)
             else:
-                rgb_buf = render_frame(
-                    time_info, theme,
-                    overlay_fn=self._overlay_fn,
-                    alarms=self._alarms,
-                    agenda_events=self._agenda_events,
-                    hand_angles=hand_angles,
-                )
+                # Clock mode — use face renderer if a face is active,
+                # otherwise fall back to legacy theme renderer.
+                if self._cfg_face:
+                    data_ctx = DataContext(
+                        time_info=time_info,
+                        hand_angles=hand_angles,
+                        alarms=self._alarms,
+                        agenda_events=self._agenda_events,
+                        now=now,
+                    )
+                    rgb_buf = render_face_frame(
+                        self._cfg_face, data_ctx,
+                        overlay_fn=self._overlay_fn,
+                    )
+                else:
+                    rgb_buf = render_frame(
+                        time_info, theme,
+                        overlay_fn=self._overlay_fn,
+                        alarms=self._alarms,
+                        agenda_events=self._agenda_events,
+                        hand_angles=hand_angles,
+                    )
                 show_frame_from_buffer(rgb_buf)
 
             if _debug:
@@ -595,6 +625,13 @@ class ClockEngine:
                 self._cfg_tz = ZoneInfo("UTC")
         self._cfg_display_mode = self._settings.get("display_mode", "clock") or "clock"
         self._cfg_theme = self._theme_manager.get_active_theme()
+        # Load active face (element-based system — takes priority over theme)
+        # Only use face renderer when user has explicitly activated a face
+        active_face_name = self._settings.get("active_face")
+        if active_face_name:
+            self._cfg_face = self._face_manager.get_active_theme()
+        else:
+            self._cfg_face = None
         new_dial_theme = self._dial_theme_manager.get_active_theme()
         if new_dial_theme is not self._cfg_dial_theme:
             self._cfg_dial_theme = new_dial_theme

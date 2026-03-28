@@ -1,0 +1,983 @@
+{% extends "base.html" %}
+{% block title %}PiClock — Face Editor{% endblock %}
+{% block main_class %}max-w-[90rem] px-2 sm:px-4{% endblock %}
+{% block content %}
+<div x-data="faceEditor()" x-init="init()">
+    <h1 class="text-2xl font-bold mb-6">Face Editor</h1>
+
+    <div class="flex flex-col lg:flex-row gap-4 lg:gap-6">
+        <!-- Face List -->
+        <div class="card w-full lg:w-64 flex-shrink-0 self-start">
+            <h2 class="text-lg font-semibold mb-4">Faces</h2>
+            <div class="space-y-2">
+                <template x-for="f in faces" :key="f">
+                    <div class="flex items-center justify-between p-2 rounded cursor-pointer hover:bg-slate-600"
+                         :class="{ 'bg-slate-600': editing === f }"
+                         @click="loadFace(f)">
+                        <span x-text="f" class="truncate"></span>
+                        <span x-show="f === active" class="text-xs bg-blue-600 px-2 py-0.5 rounded flex-shrink-0">Active</span>
+                    </div>
+                </template>
+            </div>
+            <div class="mt-4 space-y-2">
+                <input x-model="newName" placeholder="New face name"
+                       class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                <button @click="createFace()"
+                        class="w-full bg-green-600 hover:bg-green-700 text-white text-sm px-3 py-1.5 rounded">
+                    Create New
+                </button>
+            </div>
+            <!-- Convert from legacy theme -->
+            <div class="mt-4 border-t border-slate-600 pt-4 space-y-2">
+                <p class="text-xs text-slate-400 mb-1">Convert existing theme</p>
+                <select x-model="convertSource" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                    <option value="">Select theme...</option>
+                    <template x-for="t in legacyThemes" :key="t.name">
+                        <option :value="JSON.stringify(t)" x-text="t.name + ' (' + t.type + ')'"></option>
+                    </template>
+                </select>
+                <button @click="convertTheme()" x-show="convertSource"
+                        class="w-full bg-yellow-600 hover:bg-yellow-700 text-white text-sm px-3 py-1.5 rounded">
+                    Convert to Face
+                </button>
+            </div>
+            <!-- Import / Export -->
+            <div class="mt-4 border-t border-slate-600 pt-4 space-y-2">
+                <button @click="exportFace()" x-show="editing"
+                        class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-3 py-1.5 rounded">
+                    Export JSON
+                </button>
+                <label class="block w-full bg-teal-600 hover:bg-teal-700 text-white text-sm px-3 py-1.5 rounded text-center cursor-pointer">
+                    Import JSON
+                    <input type="file" accept=".json" @change="importFace($event)" class="hidden">
+                </label>
+            </div>
+        </div>
+
+        <!-- Editor Controls (scrollable middle) -->
+        <div class="card flex-1 min-w-0 overflow-y-auto order-last lg:order-none" style="max-height: calc(100vh - 10rem);" x-show="face">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold">Editing: <span x-text="editing"></span></h2>
+                <div class="flex flex-wrap gap-2">
+                    <button @click="activateFace()"
+                            class="bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1 rounded">
+                        Activate
+                    </button>
+                    <button @click="deactivateFace()" x-show="active"
+                            class="bg-yellow-600 hover:bg-yellow-700 text-white text-sm px-3 py-1 rounded">
+                        Use Theme Instead
+                    </button>
+                    <button @click="saveFace()"
+                            class="bg-green-600 hover:bg-green-700 text-white text-sm px-3 py-1 rounded">
+                        Save
+                    </button>
+                    <button @click="deleteFace()"
+                            class="bg-red-600 hover:bg-red-700 text-white text-sm px-3 py-1 rounded">
+                        Delete
+                    </button>
+                </div>
+            </div>
+
+            <!-- Add Element -->
+            <div class="flex gap-2 mb-4">
+                <select x-model="addElementType" class="flex-1 bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                    <template x-for="t in elementTypes" :key="t">
+                        <option :value="t" x-text="t"></option>
+                    </template>
+                </select>
+                <button @click="addElement()"
+                        class="bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-1 rounded">
+                    + Add Element
+                </button>
+            </div>
+
+            <!-- Element List -->
+            <div class="space-y-2" x-ref="elementList">
+                <template x-for="(el, idx) in face.elements" :key="el.id">
+                    <div class="border border-slate-600 rounded-lg overflow-hidden"
+                         :class="{ 'opacity-40': el._hidden }"
+                         draggable="true"
+                         @dragstart="onDragStart($event, idx)"
+                         @dragover.prevent="onDragOver($event, idx)"
+                         @dragend="onDragEnd($event)"
+                         :data-idx="idx">
+                        <!-- Element Header (always visible) -->
+                        <div class="flex items-center gap-2 px-3 py-2 bg-slate-700 cursor-pointer"
+                             @click="toggleElement(el.id)">
+                            <!-- Drag handle -->
+                            <div class="flex-shrink-0 cursor-grab active:cursor-grabbing text-slate-500 hover:text-slate-300" @click.stop>
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><circle cx="7" cy="4" r="1.5"/><circle cx="13" cy="4" r="1.5"/><circle cx="7" cy="10" r="1.5"/><circle cx="13" cy="10" r="1.5"/><circle cx="7" cy="16" r="1.5"/><circle cx="13" cy="16" r="1.5"/></svg>
+                            </div>
+                            <!-- Visibility toggle -->
+                            <button @click.stop="toggleVisibility(el)"
+                                    class="flex-shrink-0 text-slate-400 hover:text-white" :title="el._hidden ? 'Show' : 'Hide'">
+                                <svg x-show="!el._hidden" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                <svg x-show="el._hidden" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                            </button>
+                            <!-- Type badge -->
+                            <span class="text-xs bg-slate-600 px-2 py-0.5 rounded font-mono" x-text="el.type"></span>
+                            <!-- ID -->
+                            <span class="text-sm text-slate-300 truncate flex-1" x-text="el.id"></span>
+                            <!-- Binding indicator -->
+                            <span x-show="el.bindings && Object.keys(el.bindings).length > 0"
+                                  class="text-xs bg-purple-600 px-1.5 py-0.5 rounded">bound</span>
+                            <!-- Delete -->
+                            <button @click.stop="removeElement(idx)"
+                                    class="text-red-400 hover:text-red-300 text-sm px-1">&times;</button>
+                            <!-- Expand chevron -->
+                            <svg :class="expandedElements[el.id] && 'rotate-180'" class="w-4 h-4 transition-transform text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                        </div>
+
+                        <!-- Element Properties (collapsible) -->
+                        <div x-show="expandedElements[el.id]" x-collapse class="px-3 py-3 space-y-3 bg-slate-800">
+                            <!-- Element ID -->
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">Element ID</label>
+                                <input type="text" x-model="el.id" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                            </div>
+
+                            <!-- Position (for types that support it) -->
+                            <template x-if="['circle', 'text'].includes(el.type)">
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label class="block text-xs text-slate-400 mb-1">Pos X (% radius)</label>
+                                        <input type="number" :value="el.position ? el.position[0] : 0"
+                                               @input="setPosition(el, 0, $event.target.value)"
+                                               class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs text-slate-400 mb-1">Pos Y (% radius)</label>
+                                        <input type="number" :value="el.position ? el.position[1] : 0"
+                                               @input="setPosition(el, 1, $event.target.value)"
+                                               class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                    </div>
+                                </div>
+                            </template>
+
+                            <!-- Type-specific properties -->
+                            <!-- Background -->
+                            <template x-if="el.type === 'background'">
+                                <div class="space-y-2">
+                                    <div>
+                                        <label class="block text-xs text-slate-400 mb-1">Style</label>
+                                        <select x-model="el.properties.style" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                            <option value="solid">Solid</option>
+                                            <option value="gradient">Gradient</option>
+                                            <option value="image">Image</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs text-slate-400 mb-1">Color</label>
+                                        <input type="color" x-model="el.properties.color" class="w-full h-8 rounded">
+                                    </div>
+                                    <template x-if="el.properties.style === 'gradient'">
+                                        <div class="space-y-2">
+                                            <select x-model="el.properties.gradient_type" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                                <option value="radial">Radial</option>
+                                                <option value="linear">Linear</option>
+                                            </select>
+                                            <template x-if="el.properties.colors">
+                                                <div>
+                                                    <template x-for="(c, ci) in el.properties.colors" :key="ci">
+                                                        <div class="flex gap-2 items-center mb-1">
+                                                            <input type="color" :value="c" @input="el.properties.colors[ci] = $event.target.value" class="h-7 w-12 rounded">
+                                                            <button @click="el.properties.colors.splice(ci, 1)" class="text-red-400 text-xs">&times;</button>
+                                                        </div>
+                                                    </template>
+                                                    <button @click="el.properties.colors.push('#000000')" class="text-xs text-blue-400 hover:text-blue-300">+ Add stop</button>
+                                                </div>
+                                            </template>
+                                            <template x-if="el.properties.gradient_type === 'linear'">
+                                                <div>
+                                                    <label class="block text-xs text-slate-400 mb-1">Angle: <span x-text="el.properties.gradient_angle + '°'"></span></label>
+                                                    <input type="range" x-model.number="el.properties.gradient_angle" min="0" max="360" step="5" class="w-full">
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </template>
+                                    <div>
+                                        <label class="block text-xs text-slate-400 mb-1">Opacity: <span x-text="el.properties.color_opacity + '%'"></span></label>
+                                        <input type="range" x-model.number="el.properties.color_opacity" min="0" max="100" class="w-full">
+                                    </div>
+                                </div>
+                            </template>
+
+                            <!-- Circle -->
+                            <template x-if="el.type === 'circle'">
+                                <div class="space-y-2">
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1">Radius</label>
+                                            <input type="number" x-model.number="el.properties.radius" step="0.5" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1">Color</label>
+                                            <input type="color" x-model="el.properties.color" class="w-full h-8 rounded">
+                                        </div>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" x-model="el.properties.filled"> <span class="toggle-track"></span>
+                                        <span class="text-sm ml-2">Filled</span>
+                                    </label>
+                                    <div>
+                                        <label class="block text-xs text-slate-400 mb-1">Opacity: <span x-text="el.properties.opacity + '%'"></span></label>
+                                        <input type="range" x-model.number="el.properties.opacity" min="0" max="100" class="w-full">
+                                    </div>
+                                </div>
+                            </template>
+
+                            <!-- Hand -->
+                            <template x-if="el.type === 'hand'">
+                                <div class="space-y-2">
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1">Style</label>
+                                            <select x-model="el.properties.style" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                                <option value="tapered">Tapered</option>
+                                                <option value="classic">Classic</option>
+                                                <option value="second">Second Hand</option>
+                                                <option value="triangle">Triangle</option>
+                                                <option value="needle">Needle</option>
+                                                <option value="line">Line</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1">Color</label>
+                                            <input type="color" x-model="el.properties.color" class="w-full h-8 rounded">
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-3 gap-2">
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1">Width</label>
+                                            <input type="number" x-model.number="el.properties.width" step="0.5" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1">Start %</label>
+                                            <input type="number" x-model.number="el.properties.start" step="1" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1">End %</label>
+                                            <input type="number" x-model.number="el.properties.end" step="1" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                        </div>
+                                    </div>
+                                    <div class="flex gap-4">
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" x-model="el.properties.shadow"> <span class="toggle-track"></span>
+                                            <span class="text-sm ml-2">Shadow</span>
+                                        </label>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" x-model="el.properties.glow"> <span class="toggle-track"></span>
+                                            <span class="text-sm ml-2">Glow</span>
+                                        </label>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" x-model="el.properties.smooth"> <span class="toggle-track"></span>
+                                            <span class="text-sm ml-2">Smooth</span>
+                                        </label>
+                                    </div>
+                                    <template x-if="el.properties.style === 'second'">
+                                        <div class="flex gap-4">
+                                            <label class="toggle-switch">
+                                                <input type="checkbox" x-model="el.properties.counterweight"> <span class="toggle-track"></span>
+                                                <span class="text-sm ml-2">Counterweight</span>
+                                            </label>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+
+                            <!-- Arc -->
+                            <template x-if="el.type === 'arc'">
+                                <div class="space-y-2">
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" x-model="el.properties.arc_symmetric"> <span class="toggle-track"></span>
+                                        <span class="text-sm ml-2">Symmetric Arc</span>
+                                    </label>
+                                    <template x-if="el.properties.arc_symmetric">
+                                        <div class="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label class="block text-xs text-slate-400 mb-1">Center (°)</label>
+                                                <input type="number" x-model.number="el.properties.arc_center" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs text-slate-400 mb-1">Extent (°)</label>
+                                                <input type="number" x-model.number="el.properties.arc_extent" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                            </div>
+                                        </div>
+                                    </template>
+                                    <template x-if="!el.properties.arc_symmetric">
+                                        <div class="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label class="block text-xs text-slate-400 mb-1">Arc Start (°)</label>
+                                                <input type="number" x-model.number="el.properties.arc_start" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs text-slate-400 mb-1">Arc End (°)</label>
+                                                <input type="number" x-model.number="el.properties.arc_end" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                            </div>
+                                        </div>
+                                    </template>
+                                    <div class="grid grid-cols-3 gap-2">
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1">Radius %</label>
+                                            <input type="number" x-model.number="el.properties.radius" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1">Thickness %</label>
+                                            <input type="number" x-model.number="el.properties.thickness" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1">Color</label>
+                                            <input type="color" x-model="el.properties.color" class="w-full h-8 rounded">
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1">Style</label>
+                                            <select x-model="el.properties.style" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                                <option value="solid">Solid</option>
+                                                <option value="dashed">Dashed</option>
+                                                <option value="gradient">Gradient</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1">Cap Style</label>
+                                            <select x-model="el.properties.cap_style" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                                <option value="round">Round</option>
+                                                <option value="butt">Butt</option>
+                                                <option value="square">Square</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs text-slate-400 mb-1">Opacity: <span x-text="el.properties.opacity + '%'"></span></label>
+                                        <input type="range" x-model.number="el.properties.opacity" min="0" max="100" class="w-full">
+                                    </div>
+                                </div>
+                            </template>
+
+                            <!-- Radial Lines -->
+                            <template x-if="el.type === 'radial_lines'">
+                                <div class="space-y-2">
+                                    <div class="grid grid-cols-3 gap-2">
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1">Count</label>
+                                            <input type="number" x-model.number="el.properties.count" min="1" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1">Skip Every</label>
+                                            <input type="number" x-model.number="el.properties.skip_every" min="0" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1">Width</label>
+                                            <input type="number" x-model.number="el.properties.width" step="0.5" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-3 gap-2">
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1">Inner Radius %</label>
+                                            <input type="number" x-model.number="el.properties.inner_radius" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1">Outer Radius %</label>
+                                            <input type="number" x-model.number="el.properties.outer_radius" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1">Color</label>
+                                            <input type="color" x-model="el.properties.color" class="w-full h-8 rounded">
+                                        </div>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" x-model="el.properties.shadow"> <span class="toggle-track"></span>
+                                        <span class="text-sm ml-2">Shadow</span>
+                                    </label>
+                                </div>
+                            </template>
+
+                            <!-- Radial Dots -->
+                            <template x-if="el.type === 'radial_dots'">
+                                <div class="space-y-2">
+                                    <div class="grid grid-cols-3 gap-2">
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1">Count</label>
+                                            <input type="number" x-model.number="el.properties.count" min="1" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1">Skip Every</label>
+                                            <input type="number" x-model.number="el.properties.skip_every" min="0" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1">Dot Radius</label>
+                                            <input type="number" x-model.number="el.properties.dot_radius" step="0.5" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1">Position Radius %</label>
+                                            <input type="number" x-model.number="el.properties.radius" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1">Color</label>
+                                            <input type="color" x-model="el.properties.color" class="w-full h-8 rounded">
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+
+                            <!-- Radial Text -->
+                            <template x-if="el.type === 'radial_text'">
+                                <div class="space-y-2">
+                                    <div class="grid grid-cols-3 gap-2">
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1">Style</label>
+                                            <select x-model="el.properties.style" @change="updateRadialLabels(el)" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                                <option value="arabic">Arabic</option>
+                                                <option value="roman">Roman</option>
+                                                <option value="custom">Custom</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1">Radius %</label>
+                                            <input type="number" x-model.number="el.properties.radius" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1">Color</label>
+                                            <input type="color" x-model="el.properties.color" class="w-full h-8 rounded">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs text-slate-400 mb-1">Font Size (0=auto)</label>
+                                        <input type="number" x-model.number="el.properties.font_size" min="0" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                    </div>
+                                    <template x-if="el.properties.style === 'custom'">
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1">Labels (comma-separated)</label>
+                                            <input type="text" :value="(el.properties.labels || []).join(',')"
+                                                   @change="el.properties.labels = $event.target.value.split(',')"
+                                                   class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+
+                            <!-- Text -->
+                            <template x-if="el.type === 'text'">
+                                <div class="space-y-2">
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1">Color</label>
+                                            <input type="color" x-model="el.properties.color" class="w-full h-8 rounded">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1">Font Size (0=auto)</label>
+                                            <input type="number" x-model.number="el.properties.font_size" min="0" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-3 gap-2">
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1">Prefix</label>
+                                            <input type="text" x-model="el.properties.prefix" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1">Static Text</label>
+                                            <input type="text" x-model="el.properties.static_text" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm" placeholder="or use binding">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1">Suffix</label>
+                                            <input type="text" x-model="el.properties.suffix" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs text-slate-400 mb-1">Align</label>
+                                        <select x-model="el.properties.align" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                            <option value="center">Center</option>
+                                            <option value="left">Left</option>
+                                            <option value="right">Right</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </template>
+
+                            <!-- Alarm Indicators -->
+                            <template x-if="el.type === 'alarm_indicators'">
+                                <div class="space-y-2">
+                                    <div class="grid grid-cols-3 gap-2">
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1">Color</label>
+                                            <input type="color" x-model="el.properties.color" class="w-full h-8 rounded">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1">Dot Size</label>
+                                            <input type="number" x-model.number="el.properties.size" step="0.5" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1">Radius %</label>
+                                            <input type="number" x-model.number="el.properties.radius" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+
+                            <!-- Agenda -->
+                            <template x-if="el.type === 'agenda'">
+                                <div class="space-y-2">
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1">Min Radius %</label>
+                                            <input type="number" x-model.number="el.properties.min_radius" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1">Max Radius %</label>
+                                            <input type="number" x-model.number="el.properties.max_radius" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs text-slate-400 mb-1">Opacity: <span x-text="el.properties.opacity + '%'"></span></label>
+                                        <input type="range" x-model.number="el.properties.opacity" min="0" max="100" class="w-full">
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" x-model="el.properties.show_current_event"> <span class="toggle-track"></span>
+                                        <span class="text-sm ml-2">Show Current Event</span>
+                                    </label>
+                                </div>
+                            </template>
+
+                            <!-- Arc Ticks -->
+                            <template x-if="el.type === 'arc_ticks'">
+                                <div class="space-y-2">
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" x-model="el.properties.arc_symmetric"> <span class="toggle-track"></span>
+                                        <span class="text-sm ml-2">Symmetric Arc</span>
+                                    </label>
+                                    <template x-if="el.properties.arc_symmetric">
+                                        <div class="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label class="block text-xs text-slate-400 mb-1">Center (°)</label>
+                                                <input type="number" x-model.number="el.properties.arc_center" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs text-slate-400 mb-1">Extent (°)</label>
+                                                <input type="number" x-model.number="el.properties.arc_extent" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                            </div>
+                                        </div>
+                                    </template>
+                                    <div class="grid grid-cols-3 gap-2">
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1">Major Count</label>
+                                            <input type="number" x-model.number="el.properties.major_count" min="2" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1">Major Color</label>
+                                            <input type="color" x-model="el.properties.major_color" class="w-full h-8 rounded">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-slate-400 mb-1">Major Width</label>
+                                            <input type="number" x-model.number="el.properties.major_width" step="0.5" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                        </div>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" x-model="el.properties.minor_ticks"> <span class="toggle-track"></span>
+                                        <span class="text-sm ml-2">Minor Ticks</span>
+                                    </label>
+                                    <template x-if="el.properties.minor_ticks">
+                                        <div class="grid grid-cols-3 gap-2">
+                                            <div>
+                                                <label class="block text-xs text-slate-400 mb-1">Per Interval</label>
+                                                <input type="number" x-model.number="el.properties.minor_count" min="1" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs text-slate-400 mb-1">Minor Color</label>
+                                                <input type="color" x-model="el.properties.minor_color" class="w-full h-8 rounded">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs text-slate-400 mb-1">Minor Width</label>
+                                                <input type="number" x-model.number="el.properties.minor_width" step="0.5" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+
+                            <!-- Bindings Section -->
+                            <div class="border-t border-slate-600 pt-3 mt-3">
+                                <p class="text-xs font-semibold text-slate-300 mb-2">Data Bindings</p>
+                                <template x-if="el.type === 'hand'">
+                                    <div>
+                                        <label class="block text-xs text-slate-400 mb-1">Angle Source</label>
+                                        <select :value="el.bindings?.angle?.source || ''"
+                                                @change="setBinding(el, 'angle', $event.target.value)"
+                                                class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                            <option value="">None</option>
+                                            <option value="time.hour_angle">time.hour_angle</option>
+                                            <option value="time.minute_angle">time.minute_angle</option>
+                                            <option value="time.second_angle">time.second_angle</option>
+                                            <option value="dial.progress">dial.progress (with arc_angle transform)</option>
+                                            <option value="timer.progress">timer.progress (with arc_angle transform)</option>
+                                        </select>
+                                    </div>
+                                </template>
+                                <template x-if="el.type === 'arc' || el.type === 'text'">
+                                    <div>
+                                        <label class="block text-xs text-slate-400 mb-1"
+                                               x-text="el.type === 'arc' ? 'Progress Source' : 'Text Source'"></label>
+                                        <select :value="getBindingSource(el)"
+                                                @change="setBindingForType(el, $event.target.value)"
+                                                class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm">
+                                            <option value="">None (static)</option>
+                                            <template x-if="el.type === 'arc'">
+                                                <template x-for="s in ['dial.progress', 'timer.progress']">
+                                                    <option :value="s" x-text="s"></option>
+                                                </template>
+                                            </template>
+                                            <template x-if="el.type === 'text'">
+                                                <template x-for="s in textSources">
+                                                    <option :value="s" x-text="s"></option>
+                                                </template>
+                                            </template>
+                                        </select>
+                                    </div>
+                                </template>
+                                <template x-if="el.type === 'alarm_indicators'">
+                                    <p class="text-xs text-slate-500">Auto-bound to alarm.list</p>
+                                </template>
+                                <template x-if="el.type === 'agenda'">
+                                    <p class="text-xs text-slate-500">Auto-bound to agenda.events</p>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <div x-show="!face.elements || face.elements.length === 0" class="text-center text-slate-500 py-8">
+                No elements yet. Add elements using the dropdown above.
+            </div>
+        </div>
+
+        <!-- Live Preview + JSON (right panel) -->
+        <div class="w-full lg:w-80 flex-shrink-0 self-start order-first lg:order-none space-y-4" x-show="face">
+            <div class="card sticky top-4 flex flex-col items-center">
+                <h3 class="text-sm text-slate-400 mb-2">Live Preview</h3>
+                <canvas id="face-preview" width="300" height="300" style="width:300px;height:300px" class="max-w-[300px]"></canvas>
+            </div>
+            <div class="card">
+                <button @click="showJSON = !showJSON" class="flex items-center gap-2 text-sm text-slate-400 hover:text-white w-full">
+                    <svg :class="showJSON && 'rotate-180'" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    JSON Data
+                </button>
+                <pre x-show="showJSON" x-collapse class="text-xs text-slate-400 bg-slate-900 p-3 rounded overflow-auto mt-2" style="max-height: 40vh;"
+                     x-text="JSON.stringify(face, null, 2)"></pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status bar -->
+    <div x-show="statusMsg" x-transition class="fixed bottom-4 right-4 bg-slate-700 text-white px-4 py-2 rounded-lg shadow-lg text-sm"
+         x-text="statusMsg"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/face-preview.js') }}"></script>
+<script>
+function faceEditor() {
+    const ROMAN = ['XII','I','II','III','IV','V','VI','VII','VIII','IX','X','XI'];
+    const ARABIC = ['12','1','2','3','4','5','6','7','8','9','10','11'];
+
+    return {
+        faces: [],
+        active: '',
+        editing: '',
+        face: null,
+        newName: '',
+        addElementType: 'hand',
+        expandedElements: {},
+        statusMsg: '',
+        convertSource: '',
+        legacyThemes: [],
+        showJSON: false,
+        _previewTimer: null,
+        _dragIdx: null,
+        elementTypes: [
+            'background', 'circle', 'arc', 'hand',
+            'radial_lines', 'radial_dots', 'radial_text',
+            'text', 'alarm_indicators', 'agenda', 'arc_ticks'
+        ],
+        textSources: [
+            'time.formatted_12h', 'time.formatted_24h',
+            'date.formatted', 'date.full', 'date.day_of_week',
+            'dial.label', 'dial.value', 'dial.min', 'dial.max',
+            'timer.remaining_formatted', 'timer.label'
+        ],
+        elementDefaults: {},
+
+        async init() {
+            await this.loadList();
+            // Load element defaults
+            const r = await fetch('/api/faces/element-types');
+            const d = await r.json();
+            this.elementDefaults = d.element_defaults || {};
+            // Load legacy themes for conversion
+            const [tr, dr] = await Promise.all([
+                fetch('/api/themes').then(r => r.json()),
+                fetch('/api/dial-themes').then(r => r.json()),
+            ]);
+            this.legacyThemes = [
+                ...(tr.themes || []).map(n => ({name: n, type: 'clock'})),
+                ...(dr.themes || []).map(n => ({name: n, type: 'dial'})),
+            ];
+            // Load first face
+            if (this.faces.length > 0) {
+                await this.loadFace(this.active || this.faces[0]);
+            }
+            // Watch face for changes and auto-refresh preview
+            this.$watch('face', () => this.schedulePreviewRefresh(), { deep: true });
+        },
+
+        async loadList() {
+            const r = await fetch('/api/faces');
+            const d = await r.json();
+            this.faces = d.faces || [];
+            this.active = d.active || '';
+        },
+
+        async loadFace(name) {
+            const r = await fetch('/api/faces/' + encodeURIComponent(name));
+            if (r.ok) {
+                this.face = await r.json();
+                this.editing = name;
+                this.expandedElements = {};
+                this.$nextTick(() => this.refreshPreview());
+            }
+        },
+
+        async saveFace() {
+            if (!this.editing || !this.face) return;
+            // Strip editor-only properties before saving
+            const clean = JSON.parse(JSON.stringify(this.face));
+            for (const el of (clean.elements || [])) { delete el._hidden; }
+            const r = await fetch('/api/faces/' + encodeURIComponent(this.editing), {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(clean),
+            });
+            if (r.ok) {
+                this.showStatus('Saved');
+            } else {
+                const d = await r.json();
+                this.showStatus('Error: ' + (d.error || 'Unknown'));
+            }
+        },
+
+        async createFace() {
+            if (!this.newName.trim()) return;
+            const face = {
+                name: this.newName.trim(),
+                version: 2,
+                elements: [],
+            };
+            const r = await fetch('/api/faces', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(face),
+            });
+            if (r.ok) {
+                await this.loadList();
+                await this.loadFace(this.newName.trim());
+                this.newName = '';
+            }
+        },
+
+        async deleteFace() {
+            if (!this.editing) return;
+            if (!confirm('Delete face "' + this.editing + '"?')) return;
+            await fetch('/api/faces/' + encodeURIComponent(this.editing), {method: 'DELETE'});
+            this.face = null;
+            this.editing = '';
+            await this.loadList();
+        },
+
+        async activateFace() {
+            if (!this.editing) return;
+            await fetch('/api/faces/' + encodeURIComponent(this.editing) + '/activate', {method: 'POST'});
+            this.active = this.editing;
+            this.showStatus('Activated');
+        },
+
+        async deactivateFace() {
+            await fetch('/api/faces/deactivate', {method: 'POST'});
+            this.active = '';
+            this.showStatus('Switched to theme mode');
+        },
+
+        async convertTheme() {
+            if (!this.convertSource) return;
+            const src = JSON.parse(this.convertSource);
+            const r = await fetch('/api/faces/convert-theme', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({type: src.type, name: src.name}),
+            });
+            if (r.ok) {
+                const face = await r.json();
+                await this.loadList();
+                await this.loadFace(face.name);
+                this.convertSource = '';
+                this.showStatus('Converted: ' + face.name);
+            }
+        },
+
+        async exportFace() {
+            if (!this.editing) return;
+            window.open('/api/faces/' + encodeURIComponent(this.editing) + '/export');
+        },
+
+        async importFace(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const form = new FormData();
+            form.append('file', file);
+            const r = await fetch('/api/faces/import', {method: 'POST', body: form});
+            if (r.ok) {
+                const face = await r.json();
+                await this.loadList();
+                await this.loadFace(face.name);
+                this.showStatus('Imported');
+            }
+            event.target.value = '';
+        },
+
+        addElement() {
+            if (!this.face) return;
+            const type = this.addElementType;
+            const defaults = JSON.parse(JSON.stringify(this.elementDefaults[type] || {}));
+            const id = type + '_' + Date.now().toString(36);
+            const el = {id, type, properties: defaults};
+
+            // Auto-set bindings for certain types
+            if (type === 'alarm_indicators') {
+                el.bindings = {items: {source: 'alarm.list'}};
+            } else if (type === 'agenda') {
+                el.bindings = {events: {source: 'agenda.events'}};
+            } else if (type === 'text' || type === 'circle') {
+                el.position = [0, 0];
+            }
+
+            this.face.elements.push(el);
+            this.expandedElements[id] = true;
+        },
+
+        removeElement(idx) {
+            this.face.elements.splice(idx, 1);
+        },
+
+        moveElement(idx, direction) {
+            const arr = this.face.elements;
+            const newIdx = idx + direction;
+            if (newIdx < 0 || newIdx >= arr.length) return;
+            const temp = arr[idx];
+            arr[idx] = arr[newIdx];
+            arr[newIdx] = temp;
+            // Force Alpine reactivity
+            this.face.elements = [...arr];
+        },
+
+        onDragStart(e, idx) {
+            this._dragIdx = idx;
+            e.dataTransfer.effectAllowed = 'move';
+            e.target.style.opacity = '0.5';
+        },
+
+        onDragOver(e, overIdx) {
+            if (this._dragIdx === null || this._dragIdx === overIdx) return;
+            const arr = this.face.elements;
+            const dragged = arr.splice(this._dragIdx, 1)[0];
+            arr.splice(overIdx, 0, dragged);
+            this._dragIdx = overIdx;
+            this.face.elements = [...arr];
+        },
+
+        onDragEnd(e) {
+            e.target.style.opacity = '';
+            this._dragIdx = null;
+        },
+
+        toggleVisibility(el) {
+            el._hidden = !el._hidden;
+            this.schedulePreviewRefresh();
+        },
+
+        toggleElement(id) {
+            this.expandedElements[id] = !this.expandedElements[id];
+        },
+
+        setPosition(el, axis, value) {
+            if (!el.position) el.position = [0, 0];
+            el.position[axis] = parseFloat(value) || 0;
+        },
+
+        setBinding(el, prop, source) {
+            if (!el.bindings) el.bindings = {};
+            if (!source) {
+                delete el.bindings[prop];
+                return;
+            }
+            const binding = {source};
+            // Auto-add arc_angle transform for dial/timer progress on hands
+            if (prop === 'angle' && (source === 'dial.progress' || source === 'timer.progress')) {
+                binding.transform = 'arc_angle';
+                binding.arc_symmetric = true;
+                binding.arc_center = 0;
+                binding.arc_extent = 130;
+            }
+            el.bindings[prop] = binding;
+        },
+
+        getBindingSource(el) {
+            if (!el.bindings) return '';
+            if (el.type === 'arc') return el.bindings?.progress?.source || '';
+            if (el.type === 'text') return el.bindings?.text?.source || '';
+            return '';
+        },
+
+        setBindingForType(el, source) {
+            if (!el.bindings) el.bindings = {};
+            if (el.type === 'arc') {
+                if (!source) { delete el.bindings.progress; return; }
+                el.bindings.progress = {source};
+            } else if (el.type === 'text') {
+                if (!source) { delete el.bindings.text; return; }
+                el.bindings.text = {source};
+            }
+        },
+
+        updateRadialLabels(el) {
+            if (el.properties.style === 'roman') {
+                el.properties.labels = [...ROMAN];
+                el.properties.font_family = 'serif';
+            } else if (el.properties.style === 'arabic') {
+                el.properties.labels = [...ARABIC];
+                el.properties.font_family = 'sans-serif';
+            }
+        },
+
+        showStatus(msg) {
+            this.statusMsg = msg;
+            setTimeout(() => this.statusMsg = '', 2000);
+        },
+
+        refreshPreview() {
+            if (this.face) {
+                invalidateFacePreview();
+                startFacePreview('face-preview', this.face);
+            }
+        },
+
+        schedulePreviewRefresh() {
+            // Debounce preview updates to avoid thrashing on rapid edits
+            clearTimeout(this._previewTimer);
+            this._previewTimer = setTimeout(() => this.refreshPreview(), 150);
+        },
+    };
+}
+</script>
+{% endblock %}
