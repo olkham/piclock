@@ -590,12 +590,12 @@ def create_api_blueprint():
 
     @bp.route("/reboot", methods=["POST"])
     def reboot():
-        subprocess.Popen(["sudo", "reboot"])
+        subprocess.Popen(["sudo", "systemctl", "reboot"])
         return jsonify({"status": "rebooting"})
 
     @bp.route("/shutdown", methods=["POST"])
     def shutdown():
-        subprocess.Popen(["sudo", "poweroff"])
+        subprocess.Popen(["sudo", "systemctl", "poweroff"])
         return jsonify({"status": "shutting_down"})
 
     # --- Version & Updates ---

@@ -158,6 +158,11 @@ echo ""
 # --- Step 5: systemd service ---
 echo "[5/5] Installing systemd service..."
 
+# Allow the service user to reboot/poweroff without a password
+SUDOERS_FILE="/etc/sudoers.d/piclock"
+echo "${SERVICE_USER} ALL=(ALL) NOPASSWD: /bin/systemctl reboot, /bin/systemctl poweroff" > "$SUDOERS_FILE"
+chmod 0440 "$SUDOERS_FILE"
+
 if [ "$USE_KMS" = true ]; then
     # KMS/DRM mode: runs from a virtual console, no X11 needed.
     # Grant device access via video+render groups (needed for /dev/dri/* and /dev/fb*).

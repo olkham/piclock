@@ -62,6 +62,18 @@ if [ -f /etc/systemd/system/piclock.service ]; then
 else
     echo "  No service file found, skipping."
 fi
+# Remove sudoers rule
+if [ -f /etc/sudoers.d/piclock ]; then
+    rm /etc/sudoers.d/piclock
+    echo "  Sudoers rule removed."
+fi
+# Remove disable-led service if installed
+if [ -f /etc/systemd/system/disable-led.service ]; then
+    systemctl disable disable-led.service 2>/dev/null || true
+    rm /etc/systemd/system/disable-led.service
+    systemctl daemon-reload
+    echo "  LED service removed."
+fi
 # Re-enable getty on tty1 if it was disabled for KMS mode
 if systemctl is-enabled --quiet getty@tty1.service 2>/dev/null; then
     : # already enabled
