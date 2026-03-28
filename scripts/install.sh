@@ -73,6 +73,16 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
+# Detect Raspberry Pi vs other SBCs
+IS_RPI=false
+if grep -qi "raspberry pi" /proc/device-tree/model 2>/dev/null; then
+    IS_RPI=true
+    echo "Board:             Raspberry Pi"
+else
+    echo "Board:             Generic SBC / $(cat /proc/device-tree/model 2>/dev/null || echo 'unknown')"
+fi
+echo ""
+
 # --- Step 1: System dependencies ---
 echo "[1/5] Installing system dependencies..."
 # Allow partial repo failures (e.g. stale backports on older Debian)
@@ -92,9 +102,9 @@ SYSTEM_DEPS=(
     git
 )
 
-if [ "$USE_KMS" = true ]; then
-    # System pygame is built against system SDL2 which includes KMS/DRM support.
-    # The pip wheel bundles its own SDL2 without kmsdrm, so we must use the system one.
+if [ "$USE_KMS" = true ] && [ "$IS_RPI" = true ]; then
+    # On Raspberry Pi, the system pygame is built against system SDL2 with KMS/DRM.
+    # The pip wheel bundles its own SDL2 without kmsdrm on Pi, so we use the system one.
     SYSTEM_DEPS+=(python3-pygame)
 fi
 
@@ -104,8 +114,8 @@ echo ""
 # --- Step 2: Virtual environment ---
 echo "[2/5] Setting up Python virtual environment..."
 
-if [ "$USE_KMS" = true ]; then
-    # --system-site-packages lets the venv see python3-pygame (which has KMS/DRM)
+if [ "$USE_KMS" = true ] && [ "$IS_RPI" = true ]; then
+    # --system-site-packages lets the venv see python3-pygame (which has KMS/DRM on Pi)
     sudo -u "$SERVICE_USER" python3 -m venv --system-site-packages "$PROJECT_DIR/venv"
 else
     sudo -u "$SERVICE_USER" python3 -m venv "$PROJECT_DIR/venv"
@@ -116,11 +126,15 @@ sudo -u "$SERVICE_USER" "$PROJECT_DIR/venv/bin/pip" install --upgrade pip
 echo "  Installing Python packages..."
 sudo -u "$SERVICE_USER" "$PROJECT_DIR/venv/bin/pip" install -r "$PROJECT_DIR/requirements.txt"
 
-if [ "$USE_KMS" = true ]; then
-    # requirements.txt includes pygame (the pip wheel), which would shadow the system
+if [ "$USE_KMS" = true ] && [ "$IS_RPI" = true ]; then
+    # On Pi, requirements.txt installs pygame (pip wheel) which would shadow the system
     # python3-pygame that has KMS/DRM support. Remove it so the system package is used.
     echo "  Removing pip pygame (system package with KMS/DRM will be used instead)..."
     sudo -u "$SERVICE_USER" "$PROJECT_DIR/venv/bin/pip" uninstall pygame -y 2>/dev/null || true
+elif [ "$USE_KMS" = true ]; then
+    # On non-Pi boards, the pip pygame (2.5+) with bundled SDL2 is more likely to have
+    # working kmsdrm/fbdev support than the distro's python3-pygame (often ancient).
+    echo "  Using pip pygame (modern SDL2 with console driver support)."
 fi
 echo ""
 
