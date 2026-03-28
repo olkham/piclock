@@ -75,7 +75,8 @@ fi
 
 # --- Step 1: System dependencies ---
 echo "[1/5] Installing system dependencies..."
-apt-get update
+# Allow partial repo failures (e.g. stale backports on older Debian)
+apt-get update || echo "  WARNING: apt-get update had errors — continuing anyway."
 
 SYSTEM_DEPS=(
     python3
