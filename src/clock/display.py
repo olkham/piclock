@@ -1,3 +1,5 @@
+import glob
+import math
 import os
 import sys
 import platform
@@ -87,6 +89,18 @@ def _init_kms_display(windowed):
     flags = pygame.DOUBLEBUF
     if not windowed:
         flags |= pygame.FULLSCREEN | pygame.NOFRAME
+
+    # Auto-detect the DRM card device for SDL2
+    dri_cards = sorted(glob.glob('/dev/dri/card*'))
+    if dri_cards:
+        os.environ.setdefault('SDL_VIDEO_KMSDRM_DEVICE', dri_cards[0])
+        print(f"KMS: DRM device: {dri_cards[0]}")
+
+    # Log diagnostic info
+    print(f"KMS: pygame {pygame.version.ver}, "
+          f"SDL {'.'.join(str(x) for x in pygame.get_sdl_version())}")
+    print(f"KMS: TTY = {os.ttyname(0) if os.isatty(0) else 'none'}, "
+          f"uid = {os.getuid()}, groups = {os.getgroups()}")
 
     last_err = None
     for driver in _KMS_DRIVER_ORDER:

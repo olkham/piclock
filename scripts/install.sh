@@ -182,7 +182,13 @@ Wants=multi-user.target
 [Service]
 Type=simple
 User=${SERVICE_USER}
+SupplementaryGroups=video render
 WorkingDirectory=${PROJECT_DIR}
+# KMS/DRM needs a virtual terminal for SDL2 to init the display
+TTYPath=/dev/tty1
+StandardInput=tty
+StandardOutput=journal
+StandardError=journal
 ExecStart=${PROJECT_DIR}/venv/bin/python -m src.main --kms
 Restart=always
 RestartSec=5
