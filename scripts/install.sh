@@ -206,6 +206,7 @@ TTYPath=/dev/tty1
 TTYReset=yes
 TTYVHangup=yes
 
+Environment=PYTHONUNBUFFERED=1
 StandardOutput=journal
 StandardError=journal
 
