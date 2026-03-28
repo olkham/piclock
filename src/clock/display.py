@@ -89,12 +89,11 @@ def _probe_driver(driver):
     """Test if a video driver initializes without crashing.
 
     Runs in a subprocess so native SEGV in SDL2 doesn't kill us.
-    Only tests pygame.init() — set_mode failures are caught by
-    the caller with try/except (they don't SEGV).
     """
     env = os.environ.copy()
     env['SDL_VIDEODRIVER'] = driver
     env['PYTHONUNBUFFERED'] = '1'
+    env['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
     probe = (
         'import pygame, sys; '
         'pygame.init(); '
@@ -109,19 +108,47 @@ def _probe_driver(driver):
         )
         if result.returncode == 0:
             res = result.stdout.strip()
-            print(f"KMS: probe '{driver}' -> ok ({res})", flush=True)
+            print(f"KMS: probe driver '{driver}' -> ok ({res})", flush=True)
             return True
-        sig = -result.returncode if result.returncode < 0 else result.returncode
         err = (result.stderr or '').strip().rsplit('\n', 1)[-1][:120]
-        print(f"KMS: probe '{driver}' -> fail (rc={result.returncode}, "
-              f"{err})", flush=True)
+        print(f"KMS: probe driver '{driver}' -> fail "
+              f"(rc={result.returncode}, {err})", flush=True)
         return False
     except subprocess.TimeoutExpired:
-        print(f"KMS: probe '{driver}' -> timeout", flush=True)
+        print(f"KMS: probe driver '{driver}' -> timeout", flush=True)
         return False
     except Exception as e:
-        print(f"KMS: probe '{driver}' -> error ({e})", flush=True)
+        print(f"KMS: probe driver '{driver}' -> error ({e})", flush=True)
         return False
+
+
+def _probe_set_mode(driver, label, flags):
+    """Test pygame.display.set_mode() in a subprocess.
+
+    SDL2's kmsdrm can SEGV during set_mode (e.g. with Mali GPU drivers).
+    Running in a subprocess lets us detect the crash without dying.
+    """
+    env = os.environ.copy()
+    env['SDL_VIDEODRIVER'] = driver
+    env['PYTHONUNBUFFERED'] = '1'
+    env['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
+    probe = (
+        f'import pygame,sys;pygame.init();'
+        f'pygame.display.set_mode(({DISPLAY_SIZE},{DISPLAY_SIZE}),{flags});'
+        f'sys.exit(0)'
+    )
+    try:
+        r = subprocess.run(
+            [sys.executable, '-c', probe],
+            env=env, capture_output=True, text=True, timeout=10,
+        )
+        ok = r.returncode == 0
+    except Exception:
+        ok = False
+    tag = 'ok' if ok else 'CRASH/fail'
+    print(f"KMS: probe set_mode {driver}/{label} (flags={flags}) -> {tag}",
+          flush=True)
+    return ok
 
 
 def _init_kms_display(windowed):
@@ -140,81 +167,61 @@ def _init_kms_display(windowed):
           f"uid = {os.getuid()}, groups = {os.getgroups()}",
           flush=True)
 
-    # Probe drivers in a subprocess first — a buggy SDL2 kmsdrm can SEGV
-    # during pygame.init(), which Python cannot catch.
+    # --- Phase 1: find drivers whose pygame.init() doesn't crash ---
     safe_drivers = []
     for driver in _KMS_DRIVER_ORDER:
-        ok = _probe_driver(driver)
-        tag = 'ok' if ok else 'CRASH/fail'
-        print(f"KMS: probe '{driver}' -> {tag}", flush=True)
-        if ok:
+        if _probe_driver(driver):
             safe_drivers.append(driver)
 
     if not safe_drivers:
         raise RuntimeError(
             f"No working console video driver found. "
-            f"All probes failed: {_KMS_DRIVER_ORDER}. "
+            f"All driver probes failed: {_KMS_DRIVER_ORDER}. "
             f"Check /dev/dri/card*, /dev/fb0 and video/render groups."
         )
 
-    # Under kmsdrm, FULLSCREEN triggers a DRM mode switch which can crash
-    # on older SDL2 with non-standard resolutions. Try progressively simpler
-    # flag combinations.
+    # --- Phase 2: find a (driver, flags) combo whose set_mode doesn't crash ---
+    # HWSURFACE is a no-op in SDL2/pygame2 but triggers Mali GPU driver SEGVs,
+    # so we don't include it. Ordered from most to least desirable.
     mode_attempts = [
-        ("fullscreen+hw", pygame.FULLSCREEN | pygame.NOFRAME | pygame.DOUBLEBUF | pygame.HWSURFACE),
-        ("fullscreen",    pygame.FULLSCREEN | pygame.NOFRAME | pygame.DOUBLEBUF),
-        ("windowed+hw",   pygame.DOUBLEBUF | pygame.HWSURFACE),
-        ("windowed",      pygame.DOUBLEBUF),
-        ("bare",          0),
+        ("fullscreen", pygame.FULLSCREEN | pygame.NOFRAME | pygame.DOUBLEBUF),
+        ("windowed",   pygame.DOUBLEBUF),
+        ("bare",       0),
     ]
 
-    last_err = None
     for driver in safe_drivers:
-        os.environ['SDL_VIDEODRIVER'] = driver
-        try:
-            pygame.quit()
-            pygame.init()
-        except pygame.error as e:
-            last_err = e
-            print(f"KMS: driver '{driver}' init failed ({e}), trying next...",
-                  flush=True)
-            continue
-
-        # Log available display modes
-        try:
-            info = pygame.display.Info()
-            print(f"KMS: driver '{driver}' reports {info.current_w}x{info.current_h}",
-                  flush=True)
-            modes = pygame.display.list_modes()
-            if modes and modes != -1:
-                print(f"KMS: available modes: "
-                      f"{modes[:5]}{'...' if len(modes) > 5 else ''}",
-                      flush=True)
-        except Exception:
-            pass
-
         for label, flags in mode_attempts:
-            try:
-                screen = pygame.display.set_mode(
-                    (DISPLAY_SIZE, DISPLAY_SIZE), flags
-                )
-                print(f"KMS: using driver '{driver}', mode '{label}'",
-                      flush=True)
-                return screen
-            except pygame.error as e:
-                last_err = e
-                print(f"KMS: {driver}/{label} failed ({e})", flush=True)
+            if not _probe_set_mode(driver, label, flags):
                 continue
 
-        print(f"KMS: driver '{driver}' — all mode attempts failed, "
-              f"trying next driver...", flush=True)
+            # Probe passed — safe to do for real in our process
+            os.environ['SDL_VIDEODRIVER'] = driver
+            pygame.quit()
+            pygame.init()
+
+            try:
+                info = pygame.display.Info()
+                print(f"KMS: {driver} reports "
+                      f"{info.current_w}x{info.current_h}", flush=True)
+                modes = pygame.display.list_modes()
+                if modes and modes != -1:
+                    print(f"KMS: available modes: "
+                          f"{modes[:5]}{'...' if len(modes) > 5 else ''}",
+                          flush=True)
+            except Exception:
+                pass
+
+            screen = pygame.display.set_mode(
+                (DISPLAY_SIZE, DISPLAY_SIZE), flags
+            )
+            print(f"KMS: using driver '{driver}', mode '{label}'",
+                  flush=True)
+            return screen
 
     raise RuntimeError(
-        f"No working console video driver found. "
-        f"Safe drivers {safe_drivers} (from {_KMS_DRIVER_ORDER}) "
-        f"all failed set_mode. Last error: {last_err}. "
-        f"Check that /dev/dri/card* or /dev/fb0 exist and the user "
-        f"has permission (video/render groups)."
+        f"No working display mode found. "
+        f"Safe drivers: {safe_drivers} (from {_KMS_DRIVER_ORDER}). "
+        f"All set_mode probes crashed or failed."
     )
 
 
