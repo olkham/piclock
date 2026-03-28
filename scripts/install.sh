@@ -136,9 +136,10 @@ if [ "$USE_KMS" = true ] && [ "$IS_RPI" = true ]; then
     echo "  Removing pip pygame (system package with KMS/DRM will be used instead)..."
     sudo -u "$SERVICE_USER" "$PROJECT_DIR/venv/bin/pip" uninstall pygame -y 2>/dev/null || true
 elif [ "$USE_KMS" = true ]; then
-    # On non-Pi boards, the pip pygame (2.5+) with bundled SDL2 is more likely to have
-    # working kmsdrm/fbdev support than the distro's python3-pygame (often ancient).
-    echo "  Using pip pygame (modern SDL2 with console driver support)."
+    # The pip pygame wheel bundles its own SDL2 which lacks kmsdrm/fbdev drivers.
+    # Rebuild pygame from source so it links against the system SDL2 (which has them).
+    echo "  Rebuilding pygame from source (linking against system SDL2 with kmsdrm)..."
+    sudo -u "$SERVICE_USER" "$PROJECT_DIR/venv/bin/pip" install pygame --no-binary pygame --force-reinstall
 fi
 echo ""
 
@@ -162,8 +163,8 @@ if [ "$USE_KMS" = true ]; then
     # Grant device access via video+render groups (needed for /dev/dri/* and /dev/fb*).
     usermod -aG video "$SERVICE_USER" 2>/dev/null || true
     usermod -aG render "$SERVICE_USER" 2>/dev/null || true
-    # input group for VT switching on some distros
     usermod -aG input "$SERVICE_USER" 2>/dev/null || true
+    usermod -aG tty "$SERVICE_USER" 2>/dev/null || true
 
     # Disable getty on tty1 so PiClock can own the VT
     echo "  Freeing tty1 for PiClock..."
@@ -195,11 +196,12 @@ Conflicts=getty@tty1.service
 [Service]
 Type=simple
 User=${SERVICE_USER}
-SupplementaryGroups=video render input
+SupplementaryGroups=video render input tty
 WorkingDirectory=${PROJECT_DIR}
 
 # Switch to VT1 and give the process a real TTY (SDL2 kmsdrm needs this)
-ExecStartPre=-/bin/chvt 1
+# + prefix runs as root (chvt needs CAP_SYS_TTY_CONFIG)
+ExecStartPre=+/bin/chvt 1
 TTYPath=/dev/tty1
 TTYReset=yes
 TTYVHangup=yes
