@@ -20,12 +20,14 @@ _display_arr_t = None
 def apply_sdl_hints(settings=None, use_kms=False):
     """Apply SDL environment hints. Must be called BEFORE pygame.init().
 
-    When use_kms=True, forces the KMS/DRM video driver which bypasses X11
-    entirely. This gives direct framebuffer access with hardware vsync and
-    eliminates the Xorg compositing overhead that causes tearing.
+    When use_kms=True, tries KMS/DRM first, then falls back through
+    fbdev and other console-capable drivers. This covers boards where
+    SDL2 was compiled without kmsdrm support (e.g. older Debian images).
     """
     if use_kms:
-        os.environ['SDL_VIDEODRIVER'] = 'kmsdrm'
+        # Don't set SDL_VIDEODRIVER yet — we'll try drivers in order
+        # during init_display(). Just clear any existing override.
+        os.environ.pop('SDL_VIDEODRIVER', None)
         # KMS/DRM handles vsync via page flipping — no compositor involved
         return
 
@@ -43,6 +45,10 @@ def apply_sdl_hints(settings=None, use_kms=False):
         os.environ['SDL_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR'] = '1' if bypass else '0'
 
 
+# Console-capable SDL2 video drivers, in preference order.
+_KMS_DRIVER_ORDER = ['kmsdrm', 'fbdev', 'directfb', 'svgalib']
+
+
 def init_display(windowed=False, settings=None, use_kms=False):
     """Initialize Pygame display. Fullscreen by default.
 
@@ -54,21 +60,12 @@ def init_display(windowed=False, settings=None, use_kms=False):
     global _screen, _frame_pg_surface
 
     apply_sdl_hints(settings, use_kms=use_kms)
-    pygame.init()
 
-    flags = pygame.DOUBLEBUF
-    if not windowed:
-        flags |= pygame.FULLSCREEN | pygame.NOFRAME
-
-    # Try hardware surface (available in KMS/DRM mode for zero-copy page flips)
-    try:
-        _screen = pygame.display.set_mode(
-            (DISPLAY_SIZE, DISPLAY_SIZE), flags | pygame.HWSURFACE
-        )
-    except pygame.error:
-        _screen = pygame.display.set_mode(
-            (DISPLAY_SIZE, DISPLAY_SIZE), flags
-        )
+    if use_kms:
+        _screen = _init_kms_display(windowed)
+    else:
+        pygame.init()
+        _screen = _init_normal_display(windowed)
 
     if windowed:
         pygame.display.set_caption("PiClock")
@@ -83,6 +80,58 @@ def init_display(windowed=False, settings=None, use_kms=False):
           f" ({'windowed' if windowed else 'fullscreen'})")
 
     return _screen
+
+
+def _init_kms_display(windowed):
+    """Try console-capable video drivers in order until one works."""
+    flags = pygame.DOUBLEBUF
+    if not windowed:
+        flags |= pygame.FULLSCREEN | pygame.NOFRAME
+
+    last_err = None
+    for driver in _KMS_DRIVER_ORDER:
+        os.environ['SDL_VIDEODRIVER'] = driver
+        try:
+            # Re-init pygame with the new driver
+            pygame.quit()
+            pygame.init()
+            try:
+                screen = pygame.display.set_mode(
+                    (DISPLAY_SIZE, DISPLAY_SIZE), flags | pygame.HWSURFACE
+                )
+            except pygame.error:
+                screen = pygame.display.set_mode(
+                    (DISPLAY_SIZE, DISPLAY_SIZE), flags
+                )
+            print(f"KMS: using SDL driver '{driver}'")
+            return screen
+        except pygame.error as e:
+            last_err = e
+            print(f"KMS: driver '{driver}' failed ({e}), trying next...")
+            continue
+
+    raise RuntimeError(
+        f"No working console video driver found. Tried: {_KMS_DRIVER_ORDER}. "
+        f"Last error: {last_err}. "
+        f"Check that /dev/dri/card* or /dev/fb0 exist and the user "
+        f"has permission (video/render groups)."
+    )
+
+
+def _init_normal_display(windowed):
+    """Standard display init (X11/Wayland)."""
+    flags = pygame.DOUBLEBUF
+    if not windowed:
+        flags |= pygame.FULLSCREEN | pygame.NOFRAME
+
+    try:
+        return pygame.display.set_mode(
+            (DISPLAY_SIZE, DISPLAY_SIZE), flags | pygame.HWSURFACE
+        )
+    except pygame.error:
+        return pygame.display.set_mode(
+            (DISPLAY_SIZE, DISPLAY_SIZE), flags
+        )
 
 
 def show_frame_from_buffer(rgb_buffer):

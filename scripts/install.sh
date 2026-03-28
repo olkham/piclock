@@ -141,9 +141,23 @@ echo "[5/5] Installing systemd service..."
 
 if [ "$USE_KMS" = true ]; then
     # KMS/DRM mode: runs from a virtual console, no X11 needed.
-    # Grant DRM device access via video+render groups.
+    # Grant device access via video+render groups (needed for /dev/dri/* and /dev/fb*).
     usermod -aG video "$SERVICE_USER" 2>/dev/null || true
     usermod -aG render "$SERVICE_USER" 2>/dev/null || true
+
+    # Diagnostics: check what display devices are available
+    echo "  Display devices:"
+    if ls /dev/dri/card* 2>/dev/null; then
+        echo "    DRI/KMS devices found."
+    else
+        echo "    No /dev/dri/card* found — kmsdrm driver won't work."
+    fi
+    if [ -e /dev/fb0 ]; then
+        echo "    Framebuffer /dev/fb0 found — fbdev driver available as fallback."
+    else
+        echo "    No /dev/fb0 found."
+    fi
+    echo ""
 
     cat > /etc/systemd/system/piclock.service << EOF
 [Unit]
