@@ -261,6 +261,28 @@ fi
 
 systemctl start piclock.service
 
+# --- Optional: disable Radxa onboard heartbeat LED ---
+if [ -e /sys/class/leds/board-led/trigger ] && grep -qi "radxa" /proc/device-tree/model 2>/dev/null; then
+    echo ""
+    read -r -p "Disable the onboard heartbeat LED? [y/N] " DISABLE_LED
+    if [[ "$DISABLE_LED" =~ ^[Yy]$ ]]; then
+        cat > /etc/systemd/system/disable-led.service << 'EOF'
+[Unit]
+Description=Disable board LED heartbeat
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'echo none > /sys/class/leds/board-led/trigger'
+
+[Install]
+WantedBy=multi-user.target
+EOF
+        systemctl daemon-reload
+        systemctl enable --now disable-led.service
+        echo "  Heartbeat LED disabled."
+    fi
+fi
+
 echo ""
 echo "=== Installation Complete ==="
 echo "PiClock is now running and will start on boot."
