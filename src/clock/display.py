@@ -89,7 +89,8 @@ def _probe_driver(driver):
     """Test if a video driver initializes without crashing.
 
     Runs in a subprocess so native SEGV in SDL2 doesn't kill us.
-    Returns True if pygame.init() + a minimal set_mode() succeed.
+    Only tests pygame.init() — set_mode failures are caught by
+    the caller with try/except (they don't SEGV).
     """
     env = os.environ.copy()
     env['SDL_VIDEODRIVER'] = driver
@@ -97,8 +98,8 @@ def _probe_driver(driver):
     probe = (
         'import pygame, sys; '
         'pygame.init(); '
-        'pygame.display.set_mode((1,1),0); '
-        'print("ok"); '
+        'i = pygame.display.Info(); '
+        'print(f"{i.current_w}x{i.current_h}"); '
         'sys.exit(0)'
     )
     try:
@@ -106,8 +107,20 @@ def _probe_driver(driver):
             [sys.executable, '-c', probe],
             env=env, capture_output=True, text=True, timeout=10,
         )
-        return result.returncode == 0
-    except Exception:
+        if result.returncode == 0:
+            res = result.stdout.strip()
+            print(f"KMS: probe '{driver}' -> ok ({res})", flush=True)
+            return True
+        sig = -result.returncode if result.returncode < 0 else result.returncode
+        err = (result.stderr or '').strip().rsplit('\n', 1)[-1][:120]
+        print(f"KMS: probe '{driver}' -> fail (rc={result.returncode}, "
+              f"{err})", flush=True)
+        return False
+    except subprocess.TimeoutExpired:
+        print(f"KMS: probe '{driver}' -> timeout", flush=True)
+        return False
+    except Exception as e:
+        print(f"KMS: probe '{driver}' -> error ({e})", flush=True)
         return False
 
 

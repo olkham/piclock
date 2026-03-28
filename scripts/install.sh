@@ -203,6 +203,7 @@ WorkingDirectory=${PROJECT_DIR}
 # + prefix runs as root (chvt needs CAP_SYS_TTY_CONFIG)
 ExecStartPre=+/bin/chvt 1
 TTYPath=/dev/tty1
+StandardInput=tty-force
 TTYReset=yes
 TTYVHangup=yes
 

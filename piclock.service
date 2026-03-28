@@ -37,7 +37,16 @@ Wants=multi-user.target
 [Service]
 Type=simple
 User=%u
+SupplementaryGroups=video render input tty
 WorkingDirectory=/home/%u/piclock
+ExecStartPre=+/bin/chvt 1
+TTYPath=/dev/tty1
+StandardInput=tty-force
+TTYReset=yes
+TTYVHangup=yes
+Environment=PYTHONUNBUFFERED=1
+StandardOutput=journal
+StandardError=journal
 ExecStart=/home/%u/piclock/venv/bin/python -m src.main --kms
 Restart=always
 RestartSec=5
