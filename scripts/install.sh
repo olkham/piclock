@@ -160,7 +160,8 @@ echo "[5/5] Installing systemd service..."
 
 # Allow the service user to reboot/poweroff without a password
 SUDOERS_FILE="/etc/sudoers.d/piclock"
-echo "${SERVICE_USER} ALL=(ALL) NOPASSWD: /bin/systemctl reboot, /bin/systemctl poweroff" > "$SUDOERS_FILE"
+SYSTEMCTL_PATH=$(which systemctl)
+echo "${SERVICE_USER} ALL=(ALL) NOPASSWD: ${SYSTEMCTL_PATH} reboot, ${SYSTEMCTL_PATH} poweroff" > "$SUDOERS_FILE"
 chmod 0440 "$SUDOERS_FILE"
 
 if [ "$USE_KMS" = true ]; then
