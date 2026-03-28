@@ -86,10 +86,6 @@ def init_display(windowed=False, settings=None, use_kms=False):
 
 def _init_kms_display(windowed):
     """Try console-capable video drivers in order until one works."""
-    flags = pygame.DOUBLEBUF
-    if not windowed:
-        flags |= pygame.FULLSCREEN | pygame.NOFRAME
-
     # Auto-detect the DRM card device for SDL2
     dri_cards = sorted(glob.glob('/dev/dri/card*'))
     if dri_cards:
@@ -102,27 +98,51 @@ def _init_kms_display(windowed):
     print(f"KMS: TTY = {os.ttyname(0) if os.isatty(0) else 'none'}, "
           f"uid = {os.getuid()}, groups = {os.getgroups()}")
 
+    # Under kmsdrm, FULLSCREEN triggers a DRM mode switch which can crash
+    # on older SDL2 with non-standard resolutions. Try progressively simpler
+    # flag combinations.
+    mode_attempts = [
+        ("fullscreen+hw", pygame.FULLSCREEN | pygame.NOFRAME | pygame.DOUBLEBUF | pygame.HWSURFACE),
+        ("fullscreen",    pygame.FULLSCREEN | pygame.NOFRAME | pygame.DOUBLEBUF),
+        ("windowed+hw",   pygame.DOUBLEBUF | pygame.HWSURFACE),
+        ("windowed",      pygame.DOUBLEBUF),
+        ("bare",          0),
+    ]
+
     last_err = None
     for driver in _KMS_DRIVER_ORDER:
         os.environ['SDL_VIDEODRIVER'] = driver
         try:
-            # Re-init pygame with the new driver
             pygame.quit()
             pygame.init()
+        except pygame.error as e:
+            last_err = e
+            print(f"KMS: driver '{driver}' init failed ({e}), trying next...")
+            continue
+
+        # Log available display modes
+        try:
+            info = pygame.display.Info()
+            print(f"KMS: driver '{driver}' reports {info.current_w}x{info.current_h}")
+            modes = pygame.display.list_modes()
+            if modes and modes != -1:
+                print(f"KMS: available modes: {modes[:5]}{'...' if len(modes) > 5 else ''}")
+        except Exception:
+            pass
+
+        for label, flags in mode_attempts:
             try:
-                screen = pygame.display.set_mode(
-                    (DISPLAY_SIZE, DISPLAY_SIZE), flags | pygame.HWSURFACE
-                )
-            except pygame.error:
                 screen = pygame.display.set_mode(
                     (DISPLAY_SIZE, DISPLAY_SIZE), flags
                 )
-            print(f"KMS: using SDL driver '{driver}'")
-            return screen
-        except pygame.error as e:
-            last_err = e
-            print(f"KMS: driver '{driver}' failed ({e}), trying next...")
-            continue
+                print(f"KMS: using driver '{driver}', mode '{label}'")
+                return screen
+            except pygame.error as e:
+                last_err = e
+                print(f"KMS: {driver}/{label} failed ({e})")
+                continue
+
+        print(f"KMS: driver '{driver}' — all mode attempts failed, trying next driver...")
 
     raise RuntimeError(
         f"No working console video driver found. Tried: {_KMS_DRIVER_ORDER}. "
