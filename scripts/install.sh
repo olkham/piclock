@@ -102,10 +102,14 @@ SYSTEM_DEPS=(
     git
 )
 
-if [ "$USE_KMS" = true ] && [ "$IS_RPI" = true ]; then
-    # On Raspberry Pi, the system pygame is built against system SDL2 with KMS/DRM.
-    # The pip wheel bundles its own SDL2 without kmsdrm on Pi, so we use the system one.
-    SYSTEM_DEPS+=(python3-pygame)
+if [ "$USE_KMS" = true ]; then
+    # chvt is needed for VT switching in the systemd service
+    SYSTEM_DEPS+=(kbd)
+    if [ "$IS_RPI" = true ]; then
+        # On Raspberry Pi, the system pygame is built against system SDL2 with KMS/DRM.
+        # The pip wheel bundles its own SDL2 without kmsdrm on Pi, so we use the system one.
+        SYSTEM_DEPS+=(python3-pygame)
+    fi
 fi
 
 apt-get install -y "${SYSTEM_DEPS[@]}"
@@ -195,7 +199,7 @@ SupplementaryGroups=video render input
 WorkingDirectory=${PROJECT_DIR}
 
 # Switch to VT1 and give the process a real TTY (SDL2 kmsdrm needs this)
-ExecStartPre=/usr/bin/chvt 1
+ExecStartPre=-/bin/chvt 1
 TTYPath=/dev/tty1
 TTYReset=yes
 TTYVHangup=yes
