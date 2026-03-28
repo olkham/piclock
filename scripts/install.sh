@@ -158,6 +158,13 @@ if [ "$USE_KMS" = true ]; then
     # Grant device access via video+render groups (needed for /dev/dri/* and /dev/fb*).
     usermod -aG video "$SERVICE_USER" 2>/dev/null || true
     usermod -aG render "$SERVICE_USER" 2>/dev/null || true
+    # input group for VT switching on some distros
+    usermod -aG input "$SERVICE_USER" 2>/dev/null || true
+
+    # Disable getty on tty1 so PiClock can own the VT
+    echo "  Freeing tty1 for PiClock..."
+    systemctl stop getty@tty1.service 2>/dev/null || true
+    systemctl disable getty@tty1.service 2>/dev/null || true
 
     # Diagnostics: check what display devices are available
     echo "  Display devices:"
@@ -178,17 +185,24 @@ if [ "$USE_KMS" = true ]; then
 Description=PiClock Analogue Clock (KMS/DRM)
 After=multi-user.target
 Wants=multi-user.target
+# Ensure getty is not holding tty1
+Conflicts=getty@tty1.service
 
 [Service]
 Type=simple
 User=${SERVICE_USER}
-SupplementaryGroups=video render
+SupplementaryGroups=video render input
 WorkingDirectory=${PROJECT_DIR}
-# KMS/DRM needs a virtual terminal for SDL2 to init the display
+
+# Switch to VT1 and give the process a real TTY (SDL2 kmsdrm needs this)
+ExecStartPre=/usr/bin/chvt 1
 TTYPath=/dev/tty1
-StandardInput=tty
+TTYReset=yes
+TTYVHangup=yes
+
 StandardOutput=journal
 StandardError=journal
+
 ExecStart=${PROJECT_DIR}/venv/bin/python -m src.main --kms
 Restart=always
 RestartSec=5

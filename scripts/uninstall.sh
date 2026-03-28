@@ -62,6 +62,14 @@ if [ -f /etc/systemd/system/piclock.service ]; then
 else
     echo "  No service file found, skipping."
 fi
+# Re-enable getty on tty1 if it was disabled for KMS mode
+if systemctl is-enabled --quiet getty@tty1.service 2>/dev/null; then
+    : # already enabled
+else
+    systemctl enable getty@tty1.service 2>/dev/null || true
+    systemctl start getty@tty1.service 2>/dev/null || true
+    echo "  Re-enabled getty on tty1."
+fi
 echo ""
 
 # --- Step 2: Restore graphical boot target if KMS mode was used ---
