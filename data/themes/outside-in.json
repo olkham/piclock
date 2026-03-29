@@ -132,7 +132,7 @@
     "visible": true,
     "color": "#ffffff",
     "font_size": 36,
-    "offset_y": 17,
+    "offset_y": -19,
     "show_day_of_week": true
   },
   "agenda": {
@@ -141,5 +141,35 @@
     "max_radius": 100,
     "opacity": 100,
     "show_current_event": true
+  },
+  "dial": {
+    "arc_start": 250,
+    "arc_end": 470,
+    "thickness": 17,
+    "track_color": "#ffffff",
+    "track_opacity": 15,
+    "progress_color": "#00D68F",
+    "progress_opacity": 100,
+    "cap_style": "butt",
+    "style": "solid",
+    "dash_length": 8,
+    "dash_gap": 4,
+    "gradient_end_color": "#ff4444",
+    "radius": 77,
+    "show_text": true,
+    "text_color": "#ffffff",
+    "text_font_size": 11,
+    "text_offset_y": -4,
+    "label_color": "#888888",
+    "label_font_size": 20,
+    "label_offset_y": 20,
+    "tick_marks": true,
+    "tick_count": 10,
+    "tick_color": "#555555",
+    "tick_length": 6,
+    "tick_width": 3,
+    "animate": true,
+    "animation_duration": 2,
+    "animation_curve": "ease_in_out"
   }
 }

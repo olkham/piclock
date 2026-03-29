@@ -1,0 +1,129 @@
+{
+  "name": "Minimal",
+  "version": 2,
+  "converted_from": "clock_theme",
+  "elements": [
+    {
+      "id": "background",
+      "type": "background",
+      "properties": {
+        "style": "solid",
+        "color": "#000000",
+        "colors": [
+          "#1a1a2e",
+          "#16213e"
+        ],
+        "gradient_type": "radial",
+        "gradient_angle": 0,
+        "gradient_center_x": 0.5,
+        "gradient_center_y": 0.5,
+        "gradient_radius": 1.0,
+        "color_stops": [],
+        "image": "",
+        "image_opacity": 100,
+        "color_opacity": 100
+      }
+    },
+    {
+      "id": "hour_labels",
+      "type": "radial_text",
+      "properties": {
+        "count": 12,
+        "labels": [
+          "XII",
+          "I",
+          "II",
+          "III",
+          "IV",
+          "V",
+          "VI",
+          "VII",
+          "VIII",
+          "IX",
+          "X",
+          "XI"
+        ],
+        "style": "roman",
+        "radius": 82,
+        "color": "#333333",
+        "font_size": 0,
+        "font_family": "serif"
+      }
+    },
+    {
+      "id": "alarm_indicators",
+      "type": "alarm_indicators",
+      "properties": {
+        "color": "#ffaa00",
+        "size": 4.0,
+        "radius": 70
+      },
+      "bindings": {
+        "items": {
+          "source": "alarm.list"
+        }
+      }
+    },
+    {
+      "id": "hour_hand",
+      "type": "hand",
+      "properties": {
+        "style": "classic",
+        "color": "#cccccc",
+        "width": 6.0,
+        "start": -5.0,
+        "end": 40.0,
+        "shadow": false,
+        "glow": false,
+        "glow_color": "#ffffff",
+        "image": "",
+        "counterweight": false,
+        "counterweight_radius": 4,
+        "smooth": false
+      },
+      "bindings": {
+        "angle": {
+          "source": "time.hour_angle"
+        }
+      }
+    },
+    {
+      "id": "minute_hand",
+      "type": "hand",
+      "properties": {
+        "style": "classic",
+        "color": "#cccccc",
+        "width": 3.0,
+        "start": -7.000000000000001,
+        "end": 62.0,
+        "shadow": false,
+        "glow": false,
+        "glow_color": "#ffffff",
+        "image": "",
+        "counterweight": false,
+        "counterweight_radius": 4,
+        "smooth": false
+      },
+      "bindings": {
+        "angle": {
+          "source": "time.minute_angle"
+        }
+      }
+    },
+    {
+      "id": "center_dot",
+      "type": "circle",
+      "properties": {
+        "radius": 4,
+        "color": "#888888",
+        "filled": true,
+        "stroke_width": 2,
+        "opacity": 100
+      },
+      "position": [
+        0,
+        0
+      ]
+    }
+  ]
+}

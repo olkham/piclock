@@ -1,0 +1,207 @@
+{
+  "converted_from": "clock_theme",
+  "elements": [
+    {
+      "id": "background",
+      "properties": {
+        "style": "gradient",
+        "color": "#1a1a2e",
+        "colors": [
+          "#1a1a2e",
+          "#16213e"
+        ],
+        "gradient_type": "radial",
+        "gradient_angle": 0,
+        "gradient_center_x": 0.5,
+        "gradient_center_y": 0.5,
+        "gradient_radius": 1,
+        "color_stops": [],
+        "image": "",
+        "image_opacity": 100,
+        "color_opacity": 100
+      },
+      "type": "background"
+    },
+    {
+      "id": "minute_ticks",
+      "properties": {
+        "count": 60,
+        "skip_every": 5,
+        "inner_radius": 93,
+        "outer_radius": 95,
+        "width": 1.5,
+        "color": "#555555",
+        "shadow": false
+      },
+      "type": "radial_lines"
+    },
+    {
+      "id": "hour_labels",
+      "properties": {
+        "count": 12,
+        "labels": [
+          "XII",
+          "I",
+          "II",
+          "III",
+          "IV",
+          "V",
+          "VI",
+          "VII",
+          "VIII",
+          "IX",
+          "X",
+          "XI"
+        ],
+        "style": "roman",
+        "radius": 82,
+        "color": "#e0e0e0",
+        "font_size": 0,
+        "font_family": "serif"
+      },
+      "type": "radial_text"
+    },
+    {
+      "bindings": {
+        "items": {
+          "source": "alarm.list"
+        }
+      },
+      "id": "alarm_indicators",
+      "properties": {
+        "color": "#ffaa00",
+        "size": 4,
+        "radius": 70
+      },
+      "type": "alarm_indicators"
+    },
+    {
+      "bindings": {
+        "angle": {
+          "source": "time.second_angle"
+        }
+      },
+      "id": "second_hand",
+      "properties": {
+        "style": "second",
+        "color": "#ff4444",
+        "width": 2,
+        "start": -15,
+        "end": 72,
+        "shadow": true,
+        "glow": false,
+        "glow_color": "#ff4444",
+        "image": "",
+        "counterweight": true,
+        "counterweight_radius": 0.04,
+        "smooth": false
+      },
+      "type": "hand"
+    },
+    {
+      "bindings": {
+        "angle": {
+          "source": "time.minute_angle"
+        }
+      },
+      "id": "minute_hand",
+      "properties": {
+        "style": "tapered",
+        "color": "#ffffff",
+        "width": 10,
+        "start": -10,
+        "end": 65,
+        "shadow": true,
+        "glow": false,
+        "glow_color": "#ffffff",
+        "image": "",
+        "counterweight": false,
+        "counterweight_radius": 4,
+        "smooth": false
+      },
+      "type": "hand"
+    },
+    {
+      "bindings": {
+        "angle": {
+          "source": "time.hour_angle"
+        }
+      },
+      "id": "hour_hand",
+      "properties": {
+        "style": "tapered",
+        "color": "#ffffff",
+        "width": 14,
+        "start": -8,
+        "end": 45,
+        "shadow": true,
+        "glow": false,
+        "glow_color": "#ffffff",
+        "image": "",
+        "counterweight": false,
+        "counterweight_radius": 4,
+        "smooth": false
+      },
+      "type": "hand"
+    },
+    {
+      "id": "radial_lines_mnahyy8k",
+      "type": "radial_lines",
+      "properties": {
+        "count": 12,
+        "skip_every": 0,
+        "inner_radius": 95,
+        "outer_radius": 100,
+        "width": 1,
+        "color": "#ffffff",
+        "shadow": false
+      }
+    },
+    {
+      "id": "circle_mnai3yq6",
+      "type": "circle",
+      "properties": {
+        "radius": 200,
+        "color": "#ffffff",
+        "filled": false,
+        "stroke_width": 2,
+        "opacity": 100
+      },
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "arc_mnai5ap2",
+      "type": "arc",
+      "properties": {
+        "arc_start": 135,
+        "arc_end": 405,
+        "arc_symmetric": true,
+        "arc_center": 0,
+        "arc_extent": 135,
+        "radius": 59,
+        "thickness": 5,
+        "color": "#ffffff",
+        "opacity": 100,
+        "cap_style": "round",
+        "style": "solid",
+        "dash_length": 8,
+        "dash_gap": 4,
+        "gradient_end_color": "#ff4444",
+        "track_style": "solid",
+        "track_gradient_start": "#22c55e",
+        "track_gradient_end": "#ef4444",
+        "track_zones": []
+      },
+      "bindings": {
+        "progress": {
+          "source": "dial.progress"
+        }
+      }
+    }
+  ],
+  "name": "Classic",
+  "version": 2
+}

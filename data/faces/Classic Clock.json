@@ -1,0 +1,227 @@
+{
+  "name": "Classic Clock",
+  "version": 2,
+  "elements": [
+    {
+      "id": "background",
+      "type": "background",
+      "properties": {
+        "style": "gradient",
+        "color": "#1a1a2e",
+        "colors": [
+          "#1a1a2e",
+          "#16213e"
+        ],
+        "gradient_type": "radial",
+        "gradient_center_x": 0.5,
+        "gradient_center_y": 0.5,
+        "gradient_radius": 1.0,
+        "color_stops": [],
+        "image": "",
+        "image_opacity": 100,
+        "color_opacity": 100
+      }
+    },
+    {
+      "id": "agenda",
+      "type": "agenda",
+      "properties": {
+        "min_radius": 45,
+        "max_radius": 65,
+        "opacity": 30,
+        "show_current_event": true,
+        "font_size": 0,
+        "offset_y": 0
+      },
+      "bindings": {
+        "events": {
+          "source": "agenda.events"
+        }
+      }
+    },
+    {
+      "id": "minute_ticks",
+      "type": "radial_lines",
+      "properties": {
+        "count": 60,
+        "skip_every": 5,
+        "inner_radius": 93,
+        "outer_radius": 95,
+        "width": 1.5,
+        "color": "#555555",
+        "shadow": false
+      }
+    },
+    {
+      "id": "hour_ticks",
+      "type": "radial_lines",
+      "properties": {
+        "count": 12,
+        "skip_every": 0,
+        "inner_radius": 89,
+        "outer_radius": 95,
+        "width": 3,
+        "color": "#e0e0e0",
+        "shadow": false
+      }
+    },
+    {
+      "id": "hour_labels",
+      "type": "radial_text",
+      "properties": {
+        "count": 12,
+        "labels": [
+          "XII",
+          "I",
+          "II",
+          "III",
+          "IV",
+          "V",
+          "VI",
+          "VII",
+          "VIII",
+          "IX",
+          "X",
+          "XI"
+        ],
+        "style": "roman",
+        "radius": 82,
+        "color": "#e0e0e0",
+        "font_size": 0,
+        "font_family": "serif"
+      }
+    },
+    {
+      "id": "alarm_indicators",
+      "type": "alarm_indicators",
+      "properties": {
+        "color": "#ffaa00",
+        "size": 4,
+        "radius": 70
+      },
+      "bindings": {
+        "items": {
+          "source": "alarm.list"
+        }
+      }
+    },
+    {
+      "id": "hour_hand",
+      "type": "hand",
+      "properties": {
+        "style": "tapered",
+        "color": "#ffffff",
+        "width": 14,
+        "start": -8,
+        "end": 45,
+        "shadow": true,
+        "glow": false,
+        "glow_color": "#ffffff",
+        "image": ""
+      },
+      "bindings": {
+        "angle": {
+          "source": "time.hour_angle"
+        }
+      }
+    },
+    {
+      "id": "minute_hand",
+      "type": "hand",
+      "properties": {
+        "style": "tapered",
+        "color": "#ffffff",
+        "width": 10,
+        "start": -10,
+        "end": 65,
+        "shadow": true,
+        "glow": false,
+        "glow_color": "#ffffff",
+        "image": ""
+      },
+      "bindings": {
+        "angle": {
+          "source": "time.minute_angle"
+        }
+      }
+    },
+    {
+      "id": "second_hand",
+      "type": "hand",
+      "properties": {
+        "style": "second",
+        "color": "#ff4444",
+        "width": 2,
+        "start": -15,
+        "end": 72,
+        "shadow": true,
+        "glow": false,
+        "glow_color": "#ff4444",
+        "counterweight": true,
+        "counterweight_radius": 4,
+        "smooth": true
+      },
+      "bindings": {
+        "angle": {
+          "source": "time.second_angle"
+        }
+      }
+    },
+    {
+      "id": "center_dot",
+      "type": "circle",
+      "properties": {
+        "radius": 6,
+        "color": "#ffffff",
+        "filled": true,
+        "opacity": 100
+      },
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "digital_time",
+      "type": "text",
+      "properties": {
+        "color": "#cccccc",
+        "font_size": 0,
+        "align": "center",
+        "suffix": "",
+        "prefix": "",
+        "font_family": "sans-serif"
+      },
+      "position": [
+        0,
+        25
+      ],
+      "bindings": {
+        "text": {
+          "source": "time.formatted_12h"
+        }
+      }
+    },
+    {
+      "id": "date_display",
+      "type": "text",
+      "properties": {
+        "color": "#cccccc",
+        "font_size": 0,
+        "align": "center",
+        "suffix": "",
+        "prefix": "",
+        "font_family": "sans-serif"
+      },
+      "position": [
+        0,
+        35
+      ],
+      "bindings": {
+        "text": {
+          "source": "date.full"
+        }
+      }
+    }
+  ]
+}

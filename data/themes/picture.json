@@ -93,7 +93,7 @@
       "image": "",
       "counterweight": false,
       "counterweight_radius": 0.04,
-      "smooth": false,
+      "smooth": true,
       "end": 74,
       "start": -12
     }
@@ -123,10 +123,87 @@
     "show_day_of_week": true
   },
   "agenda": {
-    "enabled": false,
-    "min_radius": 0,
-    "max_radius": 80,
-    "opacity": 35,
-    "show_current_event": false
+    "enabled": true,
+    "min_radius": 90,
+    "max_radius": 100,
+    "opacity": 100,
+    "show_current_event": true,
+    "font_size": 0,
+    "offset_y": -50
+  },
+  "dial": {
+    "arc_start": 135,
+    "arc_end": 405,
+    "arc_symmetric": false,
+    "arc_center": 0,
+    "arc_extent": 135,
+    "thickness": 14,
+    "track_color": "#ffffff",
+    "track_opacity": 12,
+    "progress_color": "#00D68F",
+    "progress_opacity": 100,
+    "cap_style": "round",
+    "style": "solid",
+    "dash_length": 8,
+    "dash_gap": 4,
+    "gradient_end_color": "#ff4444",
+    "radius": 85,
+    "show_text": true,
+    "label_color": "#888888",
+    "label_font_size": 0,
+    "label_offset_y": 8,
+    "show_progress": true,
+    "tick_marks": false,
+    "major_tick_count": 10,
+    "major_tick_inner_radius": 72,
+    "major_tick_outer_radius": 78,
+    "major_tick_width": 2,
+    "major_tick_color": "#888888",
+    "minor_ticks": false,
+    "minor_tick_count": 4,
+    "minor_tick_inner_radius": 73,
+    "minor_tick_outer_radius": 77,
+    "minor_tick_width": 1,
+    "minor_tick_color": "#555555",
+    "show_hand": false,
+    "hand_color": "#ffffff",
+    "hand_width": 3,
+    "hand_length": 80,
+    "hand_tail": 10,
+    "hand_style": "triangle",
+    "hand_center_dot": true,
+    "hand_center_dot_radius": 4,
+    "hand_center_dot_color": "#333333",
+    "show_value": false,
+    "value_color": "#ffffff",
+    "value_font_size": 0,
+    "value_offset_y": 12,
+    "value_suffix": "",
+    "show_min_max": false,
+    "min_max_color": "#666666",
+    "min_max_font_size": 0,
+    "track_style": "solid",
+    "track_gradient_start": "#22c55e",
+    "track_gradient_end": "#ef4444",
+    "track_zones": [
+      {
+        "color": "#22c55e",
+        "from": 0,
+        "to": 33
+      },
+      {
+        "color": "#f59e0b",
+        "from": 33,
+        "to": 66
+      },
+      {
+        "color": "#ef4444",
+        "from": 66,
+        "to": 100
+      }
+    ],
+    "animate": true,
+    "animation_duration": 0.5,
+    "animation_curve": "ease_out"
   }
 }

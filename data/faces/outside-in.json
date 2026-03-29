@@ -1,0 +1,186 @@
+{
+  "name": "outside-in",
+  "version": 2,
+  "converted_from": "clock_theme",
+  "elements": [
+    {
+      "id": "background",
+      "type": "background",
+      "properties": {
+        "style": "gradient",
+        "color": "#0f0f23",
+        "colors": [
+          "#0f0f23",
+          "#1b2838",
+          "#2a3f5f"
+        ],
+        "gradient_type": "radial",
+        "gradient_angle": 0,
+        "gradient_center_x": 0.5,
+        "gradient_center_y": 0.5,
+        "gradient_radius": 1,
+        "color_stops": [
+          {
+            "color": "#000000",
+            "position": 0
+          },
+          {
+            "color": "#131b25",
+            "position": 0.72
+          },
+          {
+            "color": "#2a3f5f",
+            "position": 1
+          }
+        ],
+        "image": "/home/ollie/piclock/src/web/../../data/uploads/FoxFinal.png",
+        "image_opacity": 75,
+        "color_opacity": 100
+      }
+    },
+    {
+      "id": "agenda",
+      "type": "agenda",
+      "properties": {
+        "min_radius": 95,
+        "max_radius": 100,
+        "opacity": 100,
+        "show_current_event": true,
+        "font_size": 0,
+        "offset_y": 0
+      },
+      "bindings": {
+        "events": {
+          "source": "agenda.events"
+        }
+      }
+    },
+    {
+      "id": "alarm_indicators",
+      "type": "alarm_indicators",
+      "properties": {
+        "color": "#ffaa00",
+        "size": 4,
+        "radius": 70
+      },
+      "bindings": {
+        "items": {
+          "source": "alarm.list"
+        }
+      }
+    },
+    {
+      "id": "hour_hand",
+      "type": "hand",
+      "properties": {
+        "style": "classic",
+        "color": "#ffffff",
+        "width": 7,
+        "start": 80,
+        "end": 100,
+        "shadow": false,
+        "glow": false,
+        "glow_color": "#ffffff",
+        "image": "",
+        "counterweight": false,
+        "counterweight_radius": 4,
+        "smooth": false
+      },
+      "bindings": {
+        "angle": {
+          "source": "time.hour_angle"
+        }
+      }
+    },
+    {
+      "id": "minute_hand",
+      "type": "hand",
+      "properties": {
+        "style": "classic",
+        "color": "#cceeFF",
+        "width": 4,
+        "start": 65,
+        "end": 100,
+        "shadow": false,
+        "glow": false,
+        "glow_color": "#ffffff",
+        "image": "",
+        "counterweight": false,
+        "counterweight_radius": 4,
+        "smooth": false
+      },
+      "bindings": {
+        "angle": {
+          "source": "time.minute_angle"
+        }
+      }
+    },
+    {
+      "id": "second_hand",
+      "type": "hand",
+      "properties": {
+        "style": "second",
+        "color": "#44aaff",
+        "width": 2,
+        "start": 50,
+        "end": 100,
+        "shadow": false,
+        "glow": false,
+        "glow_color": "#ff4444",
+        "image": "",
+        "counterweight": false,
+        "counterweight_radius": 0.04,
+        "smooth": true
+      },
+      "bindings": {
+        "angle": {
+          "source": "time.second_angle"
+        }
+      }
+    },
+    {
+      "id": "digital_time",
+      "type": "text",
+      "properties": {
+        "color": "#ffffff",
+        "font_size": 80,
+        "align": "center",
+        "static_text": "",
+        "suffix": "",
+        "prefix": "",
+        "font_family": "sans-serif"
+      },
+      "position": [
+        0,
+        0
+      ],
+      "bindings": {
+        "text": {
+          "source": "time.formatted_24h"
+        }
+      }
+    },
+    {
+      "id": "date_display",
+      "type": "text",
+      "properties": {
+        "color": "#ffffff",
+        "font_size": 36,
+        "align": "center",
+        "static_text": "",
+        "suffix": "",
+        "prefix": "",
+        "font_family": "sans-serif"
+      },
+      "position": [
+        0,
+        -19
+      ],
+      "bindings": {
+        "text": {
+          "source": "date.full"
+        }
+      }
+    }
+  ]
+}
