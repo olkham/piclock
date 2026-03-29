@@ -586,6 +586,47 @@ def create_api_blueprint():
         except (json.JSONDecodeError, ValueError) as e:
             return jsonify({"error": str(e)}), 400
 
+    # --- System time ---
+
+    @bp.route("/system/time", methods=["GET"])
+    def get_system_time():
+        ntp_enabled = True
+        ntp_synced = False
+        try:
+            result = subprocess.run(
+                ["timedatectl", "show", "--no-pager"],
+                capture_output=True, text=True, timeout=5,
+            )
+            props = {}
+            for line in result.stdout.splitlines():
+                if "=" in line:
+                    k, _, v = line.partition("=")
+                    props[k.strip()] = v.strip()
+            ntp_enabled = props.get("NTP", "no").lower() == "yes"
+            ntp_synced = props.get("NTPSynchronized", "no").lower() == "yes"
+        except Exception:
+            pass
+        now_iso = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+        return jsonify({"datetime": now_iso, "ntp_enabled": ntp_enabled, "ntp_synced": ntp_synced})
+
+    @bp.route("/system/time", methods=["PUT"])
+    def set_system_time():
+        data = request.get_json()
+        if not data or not isinstance(data, dict):
+            return jsonify({"error": "Invalid JSON body"}), 400
+        ntp = data.get("ntp", True)
+        if ntp:
+            subprocess.run(["sudo", "timedatectl", "set-ntp", "true"], timeout=10)
+        else:
+            dt_str = data.get("datetime", "")
+            try:
+                datetime.strptime(dt_str, "%Y-%m-%dT%H:%M:%S")
+            except (ValueError, TypeError):
+                return jsonify({"error": "Invalid datetime. Use YYYY-MM-DDTHH:MM:SS"}), 400
+            subprocess.run(["sudo", "timedatectl", "set-ntp", "false"], timeout=10)
+            subprocess.run(["sudo", "timedatectl", "set-time", dt_str.replace("T", " ")], timeout=10)
+        return jsonify({"status": "ok"})
+
     # --- System (reboot / shutdown) ---
 
     @bp.route("/reboot", methods=["POST"])

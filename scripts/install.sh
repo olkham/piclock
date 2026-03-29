@@ -158,10 +158,15 @@ echo ""
 # --- Step 5: systemd service ---
 echo "[5/5] Installing systemd service..."
 
-# Allow the service user to reboot/poweroff without a password
+# Allow the service user to reboot/poweroff/set-time without a password
 SUDOERS_FILE="/etc/sudoers.d/piclock"
 SYSTEMCTL_PATH=$(which systemctl)
-echo "${SERVICE_USER} ALL=(ALL) NOPASSWD: ${SYSTEMCTL_PATH} reboot, ${SYSTEMCTL_PATH} poweroff" > "$SUDOERS_FILE"
+TIMEDATECTL_PATH=$(which timedatectl 2>/dev/null || echo "/usr/bin/timedatectl")
+{
+    echo "${SERVICE_USER} ALL=(ALL) NOPASSWD: ${SYSTEMCTL_PATH} reboot, ${SYSTEMCTL_PATH} poweroff"
+    echo "${SERVICE_USER} ALL=(ALL) NOPASSWD: ${TIMEDATECTL_PATH} set-ntp true, ${TIMEDATECTL_PATH} set-ntp false"
+    echo "${SERVICE_USER} ALL=(ALL) NOPASSWD: ${TIMEDATECTL_PATH} set-time *"
+} > "$SUDOERS_FILE"
 chmod 0440 "$SUDOERS_FILE"
 
 if [ "$USE_KMS" = true ]; then

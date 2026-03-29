@@ -57,6 +57,7 @@ def create_views_blueprint():
         settings = current_app.settings
         return render_template(
             "settings.html",
+            timezone=settings.get("timezone", "UTC"),
             render_smooth_fps=int(settings.get("render_smooth_fps", 30)),
             render_animation_fps=int(settings.get("render_animation_fps", 30)),
             render_idle_fps=int(settings.get("render_idle_fps", 1)),

@@ -83,36 +83,16 @@ function dashboard() {
         themes: {{ themes | tojson }},
         selectedTheme: '{{ active_theme }}',
         themeData: null,
-        timezoneOptions: [
-            { value: 'Etc/GMT+12', label: 'GMT-12: Baker Island' },
-            { value: 'Etc/GMT+11', label: 'GMT-11: Pago Pago' },
-            { value: 'Etc/GMT+10', label: 'GMT-10: Honolulu' },
-            { value: 'Etc/GMT+9',  label: 'GMT-9: Anchorage' },
-            { value: 'Etc/GMT+8',  label: 'GMT-8: Los Angeles, Vancouver' },
-            { value: 'Etc/GMT+7',  label: 'GMT-7: Denver, Phoenix' },
-            { value: 'Etc/GMT+6',  label: 'GMT-6: Chicago, Mexico City' },
-            { value: 'Etc/GMT+5',  label: 'GMT-5: New York, Toronto, Bogota' },
-            { value: 'Etc/GMT+4',  label: 'GMT-4: Halifax, Santiago' },
-            { value: 'Etc/GMT+3',  label: 'GMT-3: São Paulo, Buenos Aires' },
-            { value: 'Etc/GMT+2',  label: 'GMT-2: South Georgia' },
-            { value: 'Etc/GMT+1',  label: 'GMT-1: Azores, Cape Verde' },
-            { value: 'Etc/GMT',    label: 'GMT: London, Dublin, Lisbon' },
-            { value: 'Etc/GMT-1',  label: 'GMT+1: Berlin, Paris, Rome' },
-            { value: 'Etc/GMT-2',  label: 'GMT+2: Cairo, Helsinki, Johannesburg' },
-            { value: 'Etc/GMT-3',  label: 'GMT+3: Moscow, Istanbul, Nairobi' },
-            { value: 'Etc/GMT-4',  label: 'GMT+4: Dubai, Baku' },
-            { value: 'Etc/GMT-5',  label: 'GMT+5: Karachi, Tashkent' },
-            { value: 'Etc/GMT-6',  label: 'GMT+6: Dhaka, Almaty' },
-            { value: 'Etc/GMT-7',  label: 'GMT+7: Bangkok, Jakarta' },
-            { value: 'Etc/GMT-8',  label: 'GMT+8: Singapore, Hong Kong, Perth' },
-            { value: 'Etc/GMT-9',  label: 'GMT+9: Tokyo, Seoul' },
-            { value: 'Etc/GMT-10', label: 'GMT+10: Sydney, Melbourne' },
-            { value: 'Etc/GMT-11', label: 'GMT+11: Solomon Islands' },
-            { value: 'Etc/GMT-12', label: 'GMT+12: Auckland, Fiji' },
-        ],
+        timezoneOptions: [],
         activeAlarm: null,
 
         async init() {
+            const tzResp = await fetch('/api/timezones');
+            const tzList = await tzResp.json();
+            this.timezoneOptions = tzList.map(tz => ({
+                value: tz.name,
+                label: tz.offset + ' \u2014 ' + tz.name,
+            }));
             await this.loadTheme();
             startClockPreview('clock-preview', this.themeData, this.timezone);
             // Poll for active alarm

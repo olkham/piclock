@@ -1,5 +1,5 @@
 {
-  "timezone": "Etc/GMT",
+  "timezone": "Europe/London",
   "active_theme": "picture",
   "render_smooth_fps": 20,
   "render_animation_fps": 20,
@@ -10,5 +10,6 @@
   "theme_cycle_random": false,
   "display_mode": "clock",
   "active_dial_theme": "Default Dial",
-  "active_face": "Classic"
+  "active_face": "Classic",
+  "github_repo": "piclock"
 }

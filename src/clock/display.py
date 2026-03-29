@@ -1,5 +1,4 @@
 import glob
-import fcntl
 import math
 import mmap as mmap_module
 import os
@@ -261,6 +260,7 @@ def _init_fb_direct():
     fd = os.open(fb_path, os.O_RDWR)
     try:
         vinfo = bytearray(160)
+        import fcntl
         fcntl.ioctl(fd, FBIOGET_VSCREENINFO, vinfo)
     except Exception:
         os.close(fd)

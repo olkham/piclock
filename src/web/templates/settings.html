@@ -99,6 +99,58 @@
         </template>
     </div>
 
+    <!-- Date & Time -->
+    <div class="card mb-6">
+        <h2 class="text-lg font-semibold mb-4">Date &amp; Time</h2>
+
+        <!-- Timezone -->
+        <div class="mb-5">
+            <label class="block text-sm text-slate-400 mb-1">Timezone</label>
+            <input type="text" x-model="tzSearch" @input="filterTz()"
+                   placeholder="Filter timezones…"
+                   class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm mb-1">
+            <select x-model="timezone" @change="saveTimezone()"
+                    class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
+                <template x-for="tz in filteredTzOptions" :key="tz.value">
+                    <option :value="tz.value" x-text="tz.label" :selected="tz.value === timezone"></option>
+                </template>
+            </select>
+        </div>
+
+        <!-- NTP toggle -->
+        <div class="flex items-center gap-3 mb-4">
+            <label class="toggle-switch">
+                <input type="checkbox" x-model="ntpEnabled" @change="toggleNtp()">
+                <div class="toggle-track"></div>
+            </label>
+            <span class="text-sm" x-text="ntpEnabled ? 'Sync time automatically (NTP)' : 'Set time manually'"></span>
+            <span x-show="ntpEnabled && ntpSynced" class="text-xs text-green-400">&#10003; Synced</span>
+        </div>
+
+        <!-- Manual time inputs -->
+        <div x-show="!ntpEnabled" class="space-y-3">
+            <div class="flex gap-3">
+                <div class="flex-1">
+                    <label class="block text-xs text-slate-400 mb-1">Date</label>
+                    <input type="date" x-model="manualDate"
+                           class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
+                </div>
+                <div class="flex-1">
+                    <label class="block text-xs text-slate-400 mb-1">Time</label>
+                    <input type="time" x-model="manualTime" step="1"
+                           class="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-sm">
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <button @click="applyManualTime()"
+                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm transition-colors">
+                    Apply Time
+                </button>
+                <span x-show="timeMessage" x-text="timeMessage" class="text-sm text-slate-400"></span>
+            </div>
+        </div>
+    </div>
+
     <!-- System -->
     <div class="card mb-6">
         <h2 class="text-lg font-semibold mb-4">System</h2>
@@ -142,6 +194,16 @@ function settingsPage() {
         updating: false,
         updateMessage: null,
         confirmAction: null,
+        // Date & Time
+        timezone: '{{ timezone }}',
+        tzSearch: '',
+        timezoneOptions: [],
+        filteredTzOptions: [],
+        ntpEnabled: true,
+        ntpSynced: false,
+        manualDate: '',
+        manualTime: '',
+        timeMessage: '',
 
         async init() {
             const vResp = await fetch('/api/version');
@@ -151,6 +213,59 @@ function settingsPage() {
             const cResp = await fetch('/api/theme-cycle');
             const cData = await cResp.json();
             this.cycle = cData;
+
+            const tzResp = await fetch('/api/timezones');
+            const tzList = await tzResp.json();
+            this.timezoneOptions = tzList.map(tz => ({
+                value: tz.name,
+                label: tz.offset + ' \u2014 ' + tz.name,
+            }));
+            this.filteredTzOptions = this.timezoneOptions;
+
+            const dtResp = await fetch('/api/system/time');
+            const dtData = await dtResp.json();
+            this.ntpEnabled = dtData.ntp_enabled;
+            this.ntpSynced = dtData.ntp_synced;
+            this.manualDate = dtData.datetime.slice(0, 10);
+            this.manualTime = dtData.datetime.slice(11, 19);
+        },
+
+        filterTz() {
+            const q = this.tzSearch.toLowerCase();
+            this.filteredTzOptions = q
+                ? this.timezoneOptions.filter(tz =>
+                    tz.value.toLowerCase().includes(q) || tz.label.toLowerCase().includes(q))
+                : this.timezoneOptions;
+        },
+
+        async saveTimezone() {
+            await fetch('/api/settings', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ timezone: this.timezone }),
+            });
+        },
+
+        async toggleNtp() {
+            if (this.ntpEnabled) {
+                await fetch('/api/system/time', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ntp: true }),
+                });
+                this.ntpSynced = false;
+            }
+        },
+
+        async applyManualTime() {
+            const dt = this.manualDate + 'T' + (this.manualTime || '00:00:00');
+            const resp = await fetch('/api/system/time', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ntp: false, datetime: dt }),
+            });
+            this.timeMessage = resp.ok ? 'Time updated.' : 'Failed to set time.';
+            setTimeout(() => this.timeMessage = '', 3000);
         },
 
         async saveRender() {
